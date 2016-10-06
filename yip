@@ -91,9 +91,9 @@ def show_help():
 
   %s
    - lists installed packages that match the query''' % (
-        color('yellow', 'hyp search <query>'),
-        color('yellow', 'hyp list'),
-        color('yellow', 'hyp list <query>')))
+        color('yellow', 'yip search <query>'),
+        color('yellow', 'yip list'),
+        color('yellow', 'yip list <query>')))
 
     sys.exit()
 

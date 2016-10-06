@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='yip',
-    version='0.2',
+    version='0.3',
     description='User-friendly frontend for \
             searching pip, like yaourt for pacman',
     url='https://github.com/balzss/yip',
