@@ -1,0 +1,119 @@
+#!/usr/bin/env python
+
+import io
+from contextlib import redirect_stdout
+import pip
+import sys
+import re
+import signal
+import subprocess
+
+# when user exits with Ctrl-C, don't show error msg
+signal.signal(signal.SIGINT, lambda x,y: sys.exit())
+
+colors = {'red': '\033[91m',
+        'green': '\033[92m',
+        'yellow': '\033[93m',
+        'blue': '\033[94m',
+        'purple': '\033[95m',
+        'endc': '\033[0m'}
+
+
+def color(color, string):
+    return colors.get(color) + string + colors.get('endc')
+
+
+def pip_search(s_term):
+    with io.StringIO() as buf, redirect_stdout(buf):
+        pip.main(['search', s_term])
+        output = buf.getvalue().replace('\n  INSTALLED', ')  - INSTALLED')
+        output = output.replace('\n  LATEST', ' | LATEST')
+        return output.split('\n')[:-1]
+
+
+def search(term=None):
+    if not term:
+        term = input(color('yellow', 'Enter search term: '))
+
+    formatted = pip_search(term)
+    option_list = {}
+
+    for i, f in enumerate(formatted):
+        spl = re.split('\) + - ', f)
+
+
+        if len(spl) < 2:
+            print('  ' + f)
+            continue
+        else:
+            if spl[1] == '':
+                spl[1] = '---'
+            else:
+                ' '.join(spl[1].split())
+
+            option_list[str(i)] = spl[0]
+
+        i_flag = '' if 'INSTALLED' not in spl[-1] \
+                else color('purple',' ' + spl[-1])
+
+        print('%s%s\n  %s' % (color('blue', '(%d) %s)' % (i, spl[0].rstrip())),
+                i_flag, spl[1]) )
+
+    inp = input(color('yellow', '>>> '))
+    if not inp.isdigit() or not int(inp) <= i:
+        sys.exit()
+
+    choice = option_list[inp].split(' (')[0].rstrip()
+    if input('\nDo you really want to install ' +
+            color('blue', choice) + '? (y/n) ') == 'y':
+        subprocess.call('sudo pip install --upgrade %s' % choice, shell=True)
+
+
+def installed(term=''):
+    pac_list = sorted(["%s (%s)" % (i.key, i.version)
+        for i in pip.get_installed_distributions()])
+
+    for p in pac_list:
+        if term in str(p):
+            print(color('blue', p))
+
+
+def show_help():
+    print('''Usage information:
+
+  %s
+   - searches for packages in the pypi repository that matches the query
+   - list them with numbers next to them
+   - you type in the number of the package you want to install and hit enter
+
+  %s
+   - lists all python packages installed on your system
+
+  %s
+   - lists installed packages that match the query''' % (
+        color('yellow', 'hyp search <query>'),
+        color('yellow', 'hyp list'),
+        color('yellow', 'hyp list <query>')))
+
+    sys.exit()
+
+def main(argv):
+    if len(argv) < 2:
+        show_help()
+
+    if argv[1] == 'list':
+        if len(argv) == 2:
+            installed()
+        else:
+            installed(' '.join(argv[2:]))
+    elif argv[1] == 'search':
+        if len(argv) == 2:
+            search()
+        else:
+            search(' '.join(argv[2:]))
+    else:
+        show_help()
+
+
+if __name__ == "__main__":
+    main(sys.argv)
