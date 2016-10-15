@@ -3,6 +3,8 @@ import pip
 import textwrap
 import signal
 import sys
+from subprocess import call
+import webbrowser
 try:
     import xmlrpclib
 except ImportError:
@@ -41,9 +43,11 @@ def human_size(b):
     return '%.2f %s' % (b, size_suffixes[i])
 
 
-def get_info(name, query):
+def get_info(name, version, query):
     url = 'https://pypi.python.org/pypi/%s/json' % name
     data = requests.get(url).json()
+    data2 = client.release_urls(name, version)[0]
+    print(data2)
     ver = data['info']['version']
     ver_info = data['releases'][ver][0] if data['releases'][ver] else ''
 
@@ -51,8 +55,7 @@ def get_info(name, query):
 
     if 'date' in query:
         return_info['date'] = 'Uploaded on: '
-        return_info['date'] += ver_info['upload_time'].split('T')[0] \
-                if ver_info else 'UNKNOWN'
+        return_info['date'] += str(data2['upload_time'])
 
     if 'size' in query:
         return_info['size'] = 'Size: '
@@ -103,6 +106,8 @@ def set_opts(argv):
             q.append(a)
     else:
         q = input(color('yellow', 'Enter search term: '))
+        if q == '':
+            sys.exit()
     argv += ['-', '-']
     opts = {}
     opts['date'] = True if '-date' in argv[2:] else False
@@ -137,7 +142,7 @@ def create_list(ordered_res, opts):
         f_extra = ''
         info_query = [key for key, value in opts.items() if value is True]
         if info_query:
-            extra_info = get_info(name, info_query)
+            extra_info = get_info(name, version, info_query)
             f_extra = ' | '.join([value for key, value in extra_info.items()
                     if key != 'home_page'])
             f_extra = color('grey', f_extra)
@@ -165,17 +170,19 @@ def print_list(formatted_list):
         if 'home_page' in r:
             print(color('yellow', wrap(r['home_page'])))
         print('%s\n' % wrap(r['summary']))
-    get_choise()
+    GLOBAL_CHOICE = get_choise()
+    print_options(GLOBAL_CHOICE)
 
 
 def get_choise():
     print(color('yellow', '=====Enter package number for options====='))
-    p_choise = input(color('yellow', '>>> '))
+    return input(color('yellow', '>>> '))
 
-    if not p_choise.isdigit() or 0 > int(p_choise) >= len(ordered_packages):
+def print_options(pp_choise):
+    if not pp_choise.isdigit() or 0 > int(pp_choise) >= len(ordered_packages):
         sys.exit()
     else:
-        p_choise = ordered_packages[int(p_choise)]
+        p_choise = ordered_packages[int(pp_choise)]
 
     if p_choise['name'] in installed:
         install_option = '[r]emove'
@@ -189,7 +196,7 @@ def get_choise():
         install_option = '[i]nstall'
         p_status = 'Not installed'
 
-    parsed_info = get_info(p_choise['name'],
+    parsed_info = get_info(p_choise['name'], p_choise['version'],
             ['home_page', 'date', 'license', 'size'])
 
     p_info = '%s\n%s\n%s\n%s' % (parsed_info['date'], parsed_info['license'],
@@ -202,27 +209,29 @@ def get_choise():
 
     print(color('yellow', '\nOptions:'))
     print(wrap('[b]ack to search results'))
-    print(wrap('[o]pen in browser'))
+    print(wrap('[o]pen homepage in browser'))
     print(wrap(install_option))
 
     o_choise = input(color('yellow', '\n>>> '))
     if o_choise == 'b':
         print_list(formatted_packages)
-    elif o_choise == 'i' and '[i]' in install_option:
+    elif o_choise == 'i' and '[i]' in install_option or \
+            (o_choise == 'u' and '[u]' in install_option):
         print('Installing package...')
-        pip.main(['install', p_choise['name']])
-    elif o_choise == 'u' and '[u]' in install_option:
-        print('Upgrading package...')
+        if(pip.main(['install', '--upgrade', p_choise['name']]) > 0):
+            if input('Retry as root? ') == 'y':
+                call('sudo pip install %s -U' % p_choise['name'], shell=True)
     elif o_choise == 'o':
         print('Opening in browser...')
+        webbrowser.open(parsed_info['home_page'].split(' ')[-1], new = 2)
+        print_options(pp_choise)
     elif o_choise == 'r' and '[r]' in install_option:
         print('Removing package...')
-        ret_val = pip.main(['uninstall', p_choise['name']])
-        if ret_val == 2:
-            print('It looks you don\'t have permission to do that!')
+        if(pip.main(['uninstall', p_choise['name']]) > 0):
             if input('Retry as root? ') == 'y':
-                print('Doin dirty things...')
+                call('sudo pip uninstall %s' % p_choise['name'], shell=True)
 
+GLOBAL_CHOICE = ''
 if __name__ == "__main__":
     client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
 

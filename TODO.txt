@@ -1,7 +1,4 @@
 TODO:
  - regex
  - config file
- - write to history
  - download count
- - working 'after opts'
- - get_info() without requests
