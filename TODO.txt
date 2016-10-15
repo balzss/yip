@@ -1,0 +1,9 @@
+TODO:
+ - regex
+ - switch colors
+ - config file
+ - remove bs4?
+ - write to history
+ - working options
+ - download count
+ - use functions
