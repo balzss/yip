@@ -7,6 +7,8 @@ import signal
 import sys
 from subprocess import call
 import webbrowser
+import configparser
+import os
 try:
     import xmlrpclib
 except ImportError:
@@ -48,8 +50,6 @@ def human_size(b):
 def get_info(name, version, query):
     url = 'https://pypi.python.org/pypi/%s/json' % name
     data = requests.get(url).json()
-    data2 = client.release_urls(name, version)[0]
-    print(data2)
     ver = data['info']['version']
     ver_info = data['releases'][ver][0] if data['releases'][ver] else ''
 
@@ -57,7 +57,8 @@ def get_info(name, version, query):
 
     if 'date' in query:
         return_info['date'] = 'Uploaded on: '
-        return_info['date'] += str(data2['upload_time'])
+        return_info['date'] += ver_info['upload_time'].split('T')[0] \
+                if ver_info else 'UNKNOWN'
 
     if 'size' in query:
         return_info['size'] = 'Size: '
@@ -100,6 +101,20 @@ def search_packages(q, i):
     return sorted(ranked_results, key=lambda k: k['score'])
 
 def set_opts(argv):
+
+    config = configparser.ConfigParser()
+    rc_file = os.getenv('HOME')+ '/.yiprc'
+    config.read(rc_file)
+
+    auto_sudo = config.getboolean('general', 'auto_sudo')
+    use_colors = config.getboolean('aesthetics', 'use_colors')
+    spacing = config.getint('aesthetics', 'spacing')
+    enable_date = config.getboolean('auto_opts', 'enable_date')
+    enable_size = config.getboolean('auto_opts', 'enable_size')
+    enable_license = config.getboolean('auto_opts', 'enable_license')
+    enable_home_page = config.getboolean('auto_opts', 'enable_home_page')
+    config_limit = config.getint('auto_opts', 'limit')
+
     if len(argv) > 1:
         q = []
         for a in argv[1:]:
@@ -221,7 +236,7 @@ def print_options(pp_choise):
             (o_choise == 'u' and '[u]' in install_option):
         print('Installing package...')
         if(pip.main(['install', '--upgrade', p_choise['name']]) > 0):
-            if input('Retry as root? ') == 'y':
+            if input(color('yellow', '\nRetry as root [y]? ')) == 'y':
                 call('sudo pip install %s -U' % p_choise['name'], shell=True)
     elif o_choise == 'o':
         print('Opening in browser...')
@@ -230,7 +245,7 @@ def print_options(pp_choise):
     elif o_choise == 'r' and '[r]' in install_option:
         print('Removing package...')
         if(pip.main(['uninstall', p_choise['name']]) > 0):
-            if input('Retry as root? ') == 'y':
+            if input(color('yellow', '\nRetry as root [y]? ')) == 'y':
                 call('sudo pip uninstall %s' % p_choise['name'], shell=True)
 
 if __name__ == "__main__":
