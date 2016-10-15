@@ -74,12 +74,16 @@ def get_installed():
 
 def search_packages(q, i):
     unordered_results = client.search({'name': q, 'summary': q}, 'or')
+    if type(q) is list:
+        q = ' '.join(q).lower()
+    else:
+        q = q.lower()
     ranked_results = []
     for r in unordered_results:
         score = 0
-        if r['name'].lower() == ' '.join(q).lower():
+        if r['name'].lower() == q:
             score = 1000
-        for s in q:
+        for s in q.split(' '):
             score += r['name'].lower().count(s.lower()) * 3
             score += r['summary'].lower().count(s.lower()) * 1 \
                     if r['summary'] else 0
@@ -96,7 +100,6 @@ def set_opts(argv):
         for a in argv[1:]:
             if a[0] == '-':
                 break
-            print(a)
             q.append(a)
     else:
         q = input(color('yellow', 'Enter search term: '))
@@ -150,6 +153,10 @@ def create_list(ordered_res, opts):
     return formatted_list
 
 def print_list(formatted_list):
+    out = ' '.join(q) if type(q) is list else q
+    if len(formatted_list) == 0:
+        print(color('yellow', '\nNo results for ') + color('blue', out))
+        sys.exit()
     for r in formatted_list:
         name = r['name']
         installed = r['installed']
@@ -158,6 +165,7 @@ def print_list(formatted_list):
         if 'home_page' in r:
             print(color('yellow', wrap(r['home_page'])))
         print('%s\n' % wrap(r['summary']))
+    get_choise()
 
 
 def get_choise():
@@ -198,8 +206,22 @@ def get_choise():
     print(wrap(install_option))
 
     o_choise = input(color('yellow', '\n>>> '))
-    print(o_choise)
-
+    if o_choise == 'b':
+        print_list(formatted_packages)
+    elif o_choise == 'i' and '[i]' in install_option:
+        print('Installing package...')
+        pip.main(['install', p_choise['name']])
+    elif o_choise == 'u' and '[u]' in install_option:
+        print('Upgrading package...')
+    elif o_choise == 'o':
+        print('Opening in browser...')
+    elif o_choise == 'r' and '[r]' in install_option:
+        print('Removing package...')
+        ret_val = pip.main(['uninstall', p_choise['name']])
+        if ret_val == 2:
+            print('It looks you don\'t have permission to do that!')
+            if input('Retry as root? ') == 'y':
+                print('Doin dirty things...')
 
 if __name__ == "__main__":
     client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
@@ -209,4 +231,3 @@ if __name__ == "__main__":
     ordered_packages = search_packages(q, limit)
     formatted_packages = create_list(ordered_packages, opts)
     print_list(formatted_packages)
-    get_choise()

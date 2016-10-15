@@ -3,4 +3,5 @@ TODO:
  - config file
  - write to history
  - download count
- - prompt if no result
+ - working 'after opts'
+ - get_info() without requests
