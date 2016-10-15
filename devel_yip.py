@@ -72,39 +72,45 @@ def get_info(name, query):
 def get_installed():
     return {i.key: i.version for i in pip.get_installed_distributions()}
 
-def search_packages(q):
-    unordered_results = client.search({'name': q, 'summary': q,
-            'keywords': q}, 'or')
+def search_packages(q, i):
+    unordered_results = client.search({'name': q, 'summary': q}, 'or')
     ranked_results = []
     for r in unordered_results:
         score = 0
-        for key, value in r.items():
-            if key == 'name':
-                if value.lower() == q.lower():
-                    score = 1000
-                    break
-                score += value.lower().count(q.lower()) * 3
-            elif key == 'summary':
-                score += value.lower().count(q.lower()) * 1
+        if r['name'].lower() == ' '.join(q).lower():
+            score = 1000
+        for s in q:
+            score += r['name'].lower().count(s.lower()) * 3
+            score += r['summary'].lower().count(s.lower()) * 1 \
+                    if r['summary'] else 0
 
         ranked_results.append({'name': r['name'], 'version': r['version'],
                 'summary': r['summary'], 'score': score})
+        if len(ranked_results) >= i:
+            break
     return sorted(ranked_results, key=lambda k: k['score'])
 
 def set_opts(argv):
-    q = argv[1] if len(argv) > 1 else \
-            input(color('yellow', 'Enter search term: '))
+    if len(argv) > 1:
+        q = []
+        for a in argv[1:]:
+            if a[0] == '-':
+                break
+            print(a)
+            q.append(a)
+    else:
+        q = input(color('yellow', 'Enter search term: '))
     argv += ['-', '-']
     opts = {}
     opts['date'] = True if '-date' in argv[2:] else False
     opts['size'] = True if '-size' in argv[2:] else False
     opts['license'] = True if '-license' in argv[2:] else False
     opts['home_page'] = True if '-homepage' in argv[2:] else False
-    opts['limit'] = argv[argv.index('-limit') + 1] if '-limit' in argv[2:] \
-            and argv.index('-limit') != len(argv) - 1 and \
-            argv[argv.index('-limit') + 1].isdigit() else -1
+    limit = int(argv[argv.index('-limit') + 1]) if '-limit' in argv[2:] \
+            and argv.index('-limit') != (len(argv)) and \
+            argv[argv.index('-limit') + 1].isdigit() else 100
 
-    return q, opts
+    return q, opts, limit
 
 def create_list(ordered_res, opts):
     formatted_list = []
@@ -199,8 +205,8 @@ if __name__ == "__main__":
     client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
 
     installed = get_installed()
-    q, opts = set_opts(sys.argv)
-    ordered_packages = search_packages(q)
+    q, opts, limit = set_opts(sys.argv)
+    ordered_packages = search_packages(q, limit)
     formatted_packages = create_list(ordered_packages, opts)
     print_list(formatted_packages)
     get_choise()
