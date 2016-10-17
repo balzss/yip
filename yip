@@ -9,6 +9,7 @@ from subprocess import call
 import webbrowser
 import configparser
 import os
+import re
 try:
     import xmlrpclib
 except ImportError:
@@ -30,8 +31,13 @@ colors = {'red': '\033[0;31m',
         'endc': '\033[0m'}
 
 
-def color(color, string):
-    return colors.get(color) + string + colors.get('endc')
+def color(color, string, disable=False):
+    if disable:
+        return string
+    elif opts['use_colors']:
+        return colors.get(color) + string + colors.get('endc')
+    else:
+        return string
 
 
 def wrap(t):
@@ -48,6 +54,7 @@ def human_size(b):
 
 
 def get_info(name, version, query):
+    # TODO rewrite this part and use xmlrpc instead of json
     url = 'https://pypi.python.org/pypi/%s/json' % name
     data = requests.get(url).json()
     ver = data['info']['version']
@@ -78,7 +85,7 @@ def get_info(name, version, query):
 def get_installed():
     return {i.key: i.version for i in pip.get_installed_distributions()}
 
-def search_packages(q, i):
+def normal_search(q, i):
     unordered_results = client.search({'name': q, 'summary': q}, 'or')
     if type(q) is list:
         q = ' '.join(q).lower()
@@ -96,24 +103,55 @@ def search_packages(q, i):
 
         ranked_results.append({'name': r['name'], 'version': r['version'],
                 'summary': r['summary'], 'score': score})
-        if len(ranked_results) >= i:
-            break
-    return sorted(ranked_results, key=lambda k: k['score'])
+    return sorted(ranked_results, key=lambda k: k['score'])[-i:]
+
+def regex_search(q):
+    package_names = client.list_packages()
+    regex_results = []
+    for p in package_names:
+        if re.match(q, p) is not None:
+            print(client.package_releases(p))
+            print(p)
+            version_info = client.package_releases(p)
+            if version_info:
+                version_info = version_info[0]
+            else:
+                continue
+            full_info = client.release_data(p, version_info)
+            regex_results.append({'name': full_info['name'],
+                    'version': full_info['version'],
+                    'summary': full_info['summary']})
+    return regex_results
 
 def set_opts(argv):
-
-    config = configparser.ConfigParser()
+    # TODO implement argparse
+    opts = {}
     rc_file = os.getenv('HOME')+ '/.yiprc'
-    config.read(rc_file)
+    if os.path.exists(rc_file):
+        config = configparser.ConfigParser()
+        config.read(rc_file)
+        auto_sudo = config.getboolean('general', 'auto_sudo')
+        use_colors = config.getboolean('aesthetics', 'use_colors')
+        opts['spacing'] = config.getint('aesthetics', 'spacing')
+        opts['use_colors'] = config.getboolean('aesthetics', 'use_colors')
+        enable_date = config.getboolean('auto_opts', 'enable_date')
+        enable_size = config.getboolean('auto_opts', 'enable_size')
+        enable_license = config.getboolean('auto_opts', 'enable_license')
+        enable_home_page = config.getboolean('auto_opts', 'enable_home_page')
+        enable_regex = config.getboolean('auto_opts', 'enable_regex')
+        config_limit = config.getint('auto_opts', 'limit')
+    else:
+        auto_sudo = False
+        use_colors = True
+        opts['spacing'] = 1
+        opts['use_colors'] = True
+        enable_date = False
+        enable_size = False
+        enable_license = False
+        enable_home_page = False
+        config_limit = 100
 
-    auto_sudo = config.getboolean('general', 'auto_sudo')
-    use_colors = config.getboolean('aesthetics', 'use_colors')
-    spacing = config.getint('aesthetics', 'spacing')
-    enable_date = config.getboolean('auto_opts', 'enable_date')
-    enable_size = config.getboolean('auto_opts', 'enable_size')
-    enable_license = config.getboolean('auto_opts', 'enable_license')
-    enable_home_page = config.getboolean('auto_opts', 'enable_home_page')
-    config_limit = config.getint('auto_opts', 'limit')
+
 
     if len(argv) > 1:
         q = []
@@ -122,18 +160,18 @@ def set_opts(argv):
                 break
             q.append(a)
     else:
-        q = input(color('yellow', 'Enter search term: '))
+        q = input(color('yellow', 'Enter search term: ', True))
         if q == '':
             sys.exit()
     argv += ['-', '-']
-    opts = {}
-    opts['date'] = True if '-date' in argv[2:] else False
-    opts['size'] = True if '-size' in argv[2:] else False
-    opts['license'] = True if '-license' in argv[2:] else False
-    opts['home_page'] = True if '-homepage' in argv[2:] else False
+    opts['date'] = True if '-date' in argv[2:] else enable_date
+    opts['size'] = True if '-size' in argv[2:] else enable_size
+    opts['license'] = True if '-license' in argv[2:] else enable_license
+    opts['home_page'] = True if '-homepage' in argv[2:] else enable_home_page
+    opts['regex'] = True if '-regex' in argv[2:] else enable_regex
     limit = int(argv[argv.index('-limit') + 1]) if '-limit' in argv[2:] \
             and argv.index('-limit') != (len(argv)) and \
-            argv[argv.index('-limit') + 1].isdigit() else 100
+            argv[argv.index('-limit') + 1].isdigit() else config_limit
 
     return q, opts, limit
 
@@ -186,7 +224,7 @@ def print_list(formatted_list):
         print('%s%s %s' % (name, installed, extra))
         if 'home_page' in r:
             print(color('yellow', wrap(r['home_page'])))
-        print('%s\n' % wrap(r['summary']))
+        print('%s%s' % (wrap(r['summary']), '\n'*opts['spacing']))
     GLOBAL_CHOICE = get_choise()
     print_options(GLOBAL_CHOICE)
 
@@ -247,13 +285,16 @@ def print_options(pp_choise):
         if(pip.main(['uninstall', p_choise['name']]) > 0):
             if input(color('yellow', '\nRetry as root [y]? ')) == 'y':
                 call('sudo pip uninstall %s' % p_choise['name'], shell=True)
-
 if __name__ == "__main__":
     GLOBAL_CHOICE = ''
+    opts = {}
     client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
+    q, opts, limit = set_opts(sys.argv)
 
     installed = get_installed()
-    q, opts, limit = set_opts(sys.argv)
-    ordered_packages = search_packages(q, limit)
+    if opts['regex']:
+        ordered_packages = regex_search(q)
+    else:
+        ordered_packages = normal_search(q, limit)
     formatted_packages = create_list(ordered_packages, opts)
     print_list(formatted_packages)
