@@ -151,6 +151,8 @@ def set_opts(argv):
         enable_home_page = False
         config_limit = 100
 
+    if not sys.stdout.isatty():
+        opts['use_colors'] = False
 
 
     if len(argv) > 1:
