@@ -1,0 +1,4 @@
+TODO:
+ - regex
+ - config file
+ - download count
