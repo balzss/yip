@@ -67,7 +67,9 @@ heavily commented and lists all the options you can set. You have to include or
 the options or it won't work!
 
 ## Requirements
-Python 3 and pip
+ - *OS-wise:* Developed and tested on Linux however it should work on OSX
+ - *software-wise:* Python 3, pip and request(will switch to xmlrpc, this is
+   only temporary)
 
 ## Other
  - License can be found in LICENSE.txt
