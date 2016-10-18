@@ -1,28 +1,69 @@
-## The problem
-If you have ever tried to search for a pypi repo with the 'pip search \<query\>' command you surely got your eyes strained and your heart broken because it's an ugly mess which we shouldn't stand anymore!
-## The solution
-I created this little helper around pip to approach a friendlier and more beautiful way of searching for python packages.
+## Intro
+If you have ever tried to search PyPI via pip you know how difficult it can be.
+Yip is an attempt to resolve that frustration and create a beautiful and feature
+rich alternative.
+## Features
+ - **configurable**: every option can be set either explicitly or in a config file
+ - **looks better**: with saner result formatting and coloring (which you can turn off)
+ - **supports regex**: one of the caveat of pip search is the lack of regex support
+ - **more info**: apart from the description it can show you the package size, date of last upload, homepage url or package license
+ - **limits results**: want only the 10 most relevant result? No problem!
 ## See it in action
 ![yip in action](http://i.imgur.com/P0ezTl5.gif)
 ## Usage
+Normal search:
 ```
-yip search <query>
+yip <name of package>
 ```
- - searches for packages in the pypi repository that matches the query
- - list them with numbers next to them
- - you type in the number of the package you want to install and hit enter
+Normal search with size and license information:
 ```
-yip list
+yip <name of package> -size -license
 ```
- - lists all python packages installed on your system
+Regex search with the homepage of the package:
 ```
-yip list <query>
+yip <regex search query> -regex -homepage
 ```
- - lists installed packages that match the query
+Normal search with the 10 most relevant results:
+```
+yip <name of package> -limit 10
+```
+## List of flags
+```
+-date
+```
+shows the upload date of the latest version
+```
+-size
+```
+shows the size in a human readable format
+```
+-license
+```
+shows the license of the package
+```
+-homepage
+```
+shows the homepage (if has any) of the package
+```
+-limit <number>
+```
+limits to the <number> most relevant result
+```
+-regex
+```
+allows you to use regex in your search query
+*important:* if you use this flag, it will only search in the title, and not in
+the summary or in the keyword and you cannot combine it with the -limit flag
+## Config file usage
+If you want to make some flags default, or automatically sudo install or turn
+off th colors you can use a config file for that. You have to create a .yiprc
+file in your home directory and paste the example config from this repo. It is
+heavily commented and lists all the options you can set. You have to include or
+the options or it won't work!
 
 ## Requirements
 Python 3 and pip
- 
+
 ## Other
  - License can be found in LICENSE.txt
  - Suggestions and pull requests are very welcome! :)

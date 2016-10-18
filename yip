@@ -130,7 +130,7 @@ def set_opts(argv):
     if os.path.exists(rc_file):
         config = configparser.ConfigParser()
         config.read(rc_file)
-        auto_sudo = config.getboolean('general', 'auto_sudo')
+        opts['auto_sudo'] = config.getboolean('general', 'auto_sudo')
         use_colors = config.getboolean('aesthetics', 'use_colors')
         opts['spacing'] = config.getint('aesthetics', 'spacing')
         opts['use_colors'] = config.getboolean('aesthetics', 'use_colors')
@@ -141,7 +141,7 @@ def set_opts(argv):
         enable_regex = config.getboolean('auto_opts', 'enable_regex')
         config_limit = config.getint('auto_opts', 'limit')
     else:
-        auto_sudo = False
+        opts['auto_sudo'] = False
         use_colors = True
         opts['spacing'] = 1
         opts['use_colors'] = True
@@ -275,18 +275,24 @@ def print_options(pp_choise):
     elif o_choise == 'i' and '[i]' in install_option or \
             (o_choise == 'u' and '[u]' in install_option):
         print('Installing package...')
-        if(pip.main(['install', '--upgrade', p_choise['name']]) > 0):
-            if input(color('yellow', '\nRetry as root [y]? ')) == 'y':
-                call('sudo pip install %s -U' % p_choise['name'], shell=True)
+        if opts['auto_sudo']:
+            call('sudo pip install %s -U' % p_choise['name'], shell=True)
+        elif(pip.main(['install', '--upgrade', p_choise['name']]) > 0):
+            if input(color('yellow', '\nRetry as root [y]? ')) != 'y':
+                sys.exit()
+            call('sudo pip install %s -U' % p_choise['name'], shell=True)
     elif o_choise == 'o':
         print('Opening in browser...')
         webbrowser.open(parsed_info['home_page'].split(' ')[-1], new = 2)
         print_options(pp_choise)
     elif o_choise == 'r' and '[r]' in install_option:
         print('Removing package...')
-        if(pip.main(['uninstall', p_choise['name']]) > 0):
-            if input(color('yellow', '\nRetry as root [y]? ')) == 'y':
-                call('sudo pip uninstall %s' % p_choise['name'], shell=True)
+        if opts['auto_sudo']:
+            call('sudo pip uninstall %s' % p_choise['name'], shell=True)
+        elif(pip.main(['uninstall', p_choise['name']]) > 0):
+            if input(color('yellow', '\nRetry as root [y]? ')) != 'y':
+                sys.exit()
+            call('sudo pip uninstall %s' % p_choise['name'], shell=True)
 if __name__ == "__main__":
     GLOBAL_CHOICE = ''
     opts = {}
