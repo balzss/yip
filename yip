@@ -149,6 +149,7 @@ def set_opts(argv):
         enable_size = False
         enable_license = False
         enable_home_page = False
+        enable_regex = False
         config_limit = 100
 
     if not sys.stdout.isatty():
