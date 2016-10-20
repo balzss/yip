@@ -1,7 +1,8 @@
 ## Intro
 If you have ever tried to search PyPI via pip you know how difficult it can be.
 Yip is an attempt to resolve that frustration and create a beautiful and feature
-rich alternative.
+rich alternative.  
+[Here is an article](https://medium.com/@balazs.saros/improving-and-extending-the-search-functionality-of-pythons-pip-50d01a4a344f#.7101f82ei) I wrote about yip on medium.com
 
 ## Features
  - **configurable**: every option can be set either explicitly or in a config file
