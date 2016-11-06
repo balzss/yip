@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import requests
 import pip
@@ -14,7 +14,6 @@ try:
     import xmlrpclib
 except ImportError:
     import xmlrpc.client as xmlrpclib
-
 
 # when user exits with Ctrl-C, don't show error msg
 signal.signal(signal.SIGINT, lambda x,y: sys.exit())
@@ -122,6 +121,7 @@ def regex_search(q):
                     'version': full_info['version'],
                     'summary': full_info['summary']})
     return regex_results
+
 
 def set_opts(argv):
     # TODO implement argparse
