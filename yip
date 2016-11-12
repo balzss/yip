@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-
-import requests
-import pip
-import textwrap
-import signal
-import sys
-from subprocess import call
-import webbrowser
-import configparser
 import os
 import re
+import sys
+import textwrap
+import signal
+import webbrowser
+import configparser
+import requests
+import pip
+
+from subprocess import call
 try:
     import xmlrpclib
 except ImportError:
@@ -17,18 +17,18 @@ except ImportError:
 
 
 # when user exits with Ctrl-C, don't show error msg
-signal.signal(signal.SIGINT, lambda x,y: sys.exit())
+signal.signal(signal.SIGINT, lambda x, y: sys.exit())
 
 size_suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
 
 colors = {'red': '\033[0;31m',
-        'green': '\033[0;32m',
-        'yellow': '\033[0;33m',
-        'blue': '\033[1;34m',
-        'purple': '\033[1;35m',
-        'cyan': '\033[1;36m',
-        'grey': '\033[0;37m',
-        'endc': '\033[0m'}
+          'green': '\033[0;32m',
+          'yellow': '\033[0;33m',
+          'blue': '\033[1;34m',
+          'purple': '\033[1;35m',
+          'cyan': '\033[1;36m',
+          'grey': '\033[0;37m',
+          'endc': '\033[0m'}
 
 
 def color(color, string, disable=False):
@@ -41,8 +41,12 @@ def color(color, string, disable=False):
 
 
 def wrap(t):
-    return textwrap.fill(t, initial_indent='  ', subsequent_indent='  ',
-            width=80, replace_whitespace=False)
+    return textwrap.fill(t,
+                         initial_indent='  ',
+                         subsequent_indent='  ',
+                         width=80,
+                         replace_whitespace=False)
+
 
 def human_size(b):
     i = 0
@@ -64,13 +68,12 @@ def get_info(name, version, query):
 
     if 'date' in query:
         return_info['date'] = 'Uploaded on: '
-        return_info['date'] += ver_info['upload_time'].split('T')[0] \
-                if ver_info else 'UNKNOWN'
+        return_info['date'] += ver_info['upload_time'].split('T')[0]\
+            if ver_info else 'UNKNOWN'
 
     if 'size' in query:
         return_info['size'] = 'Size: '
-        return_info['size'] += human_size(ver_info['size']) \
-                if ver_info else 'UNKNOWN'
+        return_info['size'] += human_size(ver_info['size']) if ver_info else 'UNKNOWN'
 
     if 'license' in query:
         return_info['license'] = 'License: '
@@ -82,8 +85,10 @@ def get_info(name, version, query):
 
     return return_info
 
+
 def get_installed():
     return {i.key: i.version for i in pip.get_installed_distributions()}
+
 
 def normal_search(q, i):
     unordered_results = client.search({'name': q, 'summary': q}, 'or')
@@ -98,12 +103,15 @@ def normal_search(q, i):
             score = 1000
         for s in q.split(' '):
             score += r['name'].lower().count(s.lower()) * 3
-            score += r['summary'].lower().count(s.lower()) * 1 \
-                    if r['summary'] else 0
+            if r['summary']:
+                score += r['summary'].lower().count(s.lower()) * 1
 
-        ranked_results.append({'name': r['name'], 'version': r['version'],
-                'summary': r['summary'], 'score': score})
+        ranked_results.append({'name': r['name'],
+                               'version': r['version'],
+                               'summary': r['summary'],
+                               'score': score})
     return sorted(ranked_results, key=lambda k: k['score'])[-i:]
+
 
 def regex_search(q):
     package_names = client.list_packages()
@@ -119,14 +127,15 @@ def regex_search(q):
                 continue
             full_info = client.release_data(p, version_info)
             regex_results.append({'name': full_info['name'],
-                    'version': full_info['version'],
-                    'summary': full_info['summary']})
+                                  'version': full_info['version'],
+                                  'summary': full_info['summary']})
     return regex_results
+
 
 def set_opts(argv):
     # TODO implement argparse
     opts = {}
-    rc_file = os.getenv('HOME')+ '/.yiprc'
+    rc_file = os.getenv('HOME') + '/.yiprc'
     if os.path.exists(rc_file):
         config = configparser.ConfigParser()
         config.read(rc_file)
@@ -155,7 +164,6 @@ def set_opts(argv):
     if not sys.stdout.isatty():
         opts['use_colors'] = False
 
-
     if len(argv) > 1:
         q = []
         for a in argv[1:]:
@@ -172,11 +180,13 @@ def set_opts(argv):
     opts['license'] = True if '-license' in argv[2:] else enable_license
     opts['home_page'] = True if '-homepage' in argv[2:] else enable_home_page
     opts['regex'] = True if '-regex' in argv[2:] else enable_regex
-    limit = int(argv[argv.index('-limit') + 1]) if '-limit' in argv[2:] \
-            and argv.index('-limit') != (len(argv)) and \
-            argv[argv.index('-limit') + 1].isdigit() else config_limit
+    if '-limit' in argv[2:] and argv.index('-limit') != (len(argv)) and argv[argv.index('-limit') + 1].isdigit():
+        limit = int(argv[argv.index('-limit') + 1])
+    else:
+        limit = config_limit
 
     return q, opts, limit
+
 
 def create_list(ordered_res, opts):
     formatted_list = []
@@ -201,19 +211,21 @@ def create_list(ordered_res, opts):
         info_query = [key for key, value in opts.items() if value is True]
         if info_query:
             extra_info = get_info(name, version, info_query)
-            f_extra = ' | '.join([value for key, value in extra_info.items()
-                    if key != 'home_page'])
+            f_extra = ' | '.join([value for key, value in extra_info.items() if key != 'home_page'])
             f_extra = color('grey', f_extra)
 
         f_name = color('blue', '[%d]%s (%s)' % (i, name, version))
 
-        info_dict = {'name': f_name, 'installed': f_installed,
-                'extra': f_extra, 'summary': description}
+        info_dict = {'name': f_name,
+                     'installed': f_installed,
+                     'extra': f_extra,
+                     'summary': description}
         if 'home_page' in extra_info:
             info_dict['home_page'] = extra_info['home_page']
         formatted_list.append(info_dict)
 
     return formatted_list
+
 
 def print_list(formatted_list):
     out = ' '.join(q) if type(q) is list else q
@@ -236,6 +248,7 @@ def get_choise():
     print(color('yellow', '=====Enter package number for options====='))
     return input(color('yellow', '>>> '))
 
+
 def print_options(pp_choise):
     if not pp_choise.isdigit() or 0 > int(pp_choise) >= len(ordered_packages):
         sys.exit()
@@ -254,15 +267,17 @@ def print_options(pp_choise):
         install_option = '[i]nstall'
         p_status = 'Not installed'
 
-    parsed_info = get_info(p_choise['name'], p_choise['version'],
-            ['home_page', 'date', 'license', 'size'])
+    parsed_info = get_info(p_choise['name'],
+                           p_choise['version'],
+                           ['home_page', 'date', 'license', 'size'])
 
-    p_info = '%s\n%s\n%s\n%s' % (parsed_info['date'], parsed_info['license'],
-            parsed_info['size'], parsed_info['home_page'])
+    p_info = '%s\n%s\n%s\n%s' % (parsed_info['date'],
+                                 parsed_info['license'],
+                                 parsed_info['size'],
+                                 parsed_info['home_page'])
 
     print(color('blue', '\nName: %s' % p_choise['name']))
-    print(color('purple', 'Version: %s\nStatus: %s'
-            % (p_choise['version'], p_status)))
+    print(color('purple', 'Version: %s\nStatus: %s' % (p_choise['version'], p_status)))
     print(color('grey', p_info))
 
     print(color('yellow', '\nOptions:'))
@@ -284,7 +299,7 @@ def print_options(pp_choise):
             call('sudo pip install %s -U' % p_choise['name'], shell=True)
     elif o_choise == 'o':
         print('Opening in browser...')
-        webbrowser.open(parsed_info['home_page'].split(' ')[-1], new = 2)
+        webbrowser.open(parsed_info['home_page'].split(' ')[-1], new=2)
         print_options(pp_choise)
     elif o_choise == 'r' and '[r]' in install_option:
         print('Removing package...')
@@ -294,6 +309,8 @@ def print_options(pp_choise):
             if input(color('yellow', '\nRetry as root [y]? ')) != 'y':
                 sys.exit()
             call('sudo pip uninstall %s' % p_choise['name'], shell=True)
+
+
 if __name__ == "__main__":
     GLOBAL_CHOICE = ''
     opts = {}
