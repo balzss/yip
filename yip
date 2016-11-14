@@ -53,6 +53,9 @@ def human_size(b):
 
 
 def get_info(name, version, query):
+
+
+
     # TODO rewrite this part and use xmlrpc instead of json
     url = 'https://pypi.python.org/pypi/%s/json' % name
     data = requests.get(url).json()
@@ -124,6 +127,34 @@ def regex_search(q):
 
 
 def set_opts(argv):
+
+
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--size', action='store_true',
+                        dest='size', help='Displays the size of each package',
+                        required=False, default=conf['size'])
+    parser.add_argument('-H', '--homepage', action='store_true',
+                        dest='homepage', help='Displays the homepage
+                        (if has any) of each package',
+                        required=False, default=conf['homepage'])
+    parser.add_argument('-L', '--license', action='store_true',
+                        dest='license', help='Displays the license(if stated)
+                         of each package',
+                        required=False, default=conf['license'])
+    parser.add_argument('-r', '--regex', action='store_true',
+                        dest='regex', help='Enables regex search',
+                        required=False, default=conf['regex'])
+    parser.add_argument('-l', '--limit', type=int, dest='limit',
+                        help='Limits your results to the N most relevant ones',
+                        required=False, default=conf['limit'])
+    parser.add_argument('-d', '--date', action='store_true',
+                        dest='date', help='Displays the upload date \
+                        of each package',
+                        required=False, default=conf['date'])
+    # return parser.parse_args()
+
+
     # TODO implement argparse
     opts = {}
     rc_file = os.getenv('HOME')+ '/.yiprc'
