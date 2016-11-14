@@ -68,10 +68,10 @@ should be used as a reference.
 ![yip in action](http://i.imgur.com/s56ssMx.gif)
 
 ## Config file usage
-If you want to make some flags default, or automatically sudo install or turn
-off th colors you can use a config file for that. You have to create a .yiprc
+If you want to make some flags default, automatically sudo install or turn
+off the colors you can use a config file for that. You have to create a .yiprc
 file in your home directory and paste the example config from this repo. It is
-heavily commented and lists all the options you can set. You have to include or
+heavily commented and lists all the options you can set. You have to include all
 the options or it won't work!
 
 ## Requirements
