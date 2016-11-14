@@ -38,4 +38,4 @@ enable_regex = False
 # The number of packages you want to display by default, for example if
 # you want only the 15 most relevant results set it to 15
 # it doesn't work when you are using the '-regex' flag
-limit = 100
+limit = 99

@@ -1,7 +1,7 @@
 ## Intro
 If you have ever tried to search PyPI via pip you know how difficult it can be.
 Yip is an attempt to resolve that frustration and create a beautiful and feature
-rich alternative.  
+rich alternative.
 [Here is an article](https://medium.com/@balazs.saros/improving-and-extending-the-search-functionality-of-pythons-pip-50d01a4a344f#.7101f82ei) I wrote about yip on medium.com
 
 ## Features
@@ -11,54 +11,61 @@ rich alternative.
  - **more info**: apart from the description it can show you the package size, date of last upload, homepage url or package license
  - **limits results**: want only the 10 most relevant result? No problem!
 
-## See it in action
-![yip in action](http://i.imgur.com/s56ssMx.gif)
-
-## Usage
+## Usage example
 Normal search:
 ```
 yip <name of package>
 ```
 Normal search with size and license information:
 ```
-yip <name of package> -size -license
+yip <name of package> --size --license
 ```
 Regex search with the homepage of the package:
 ```
-yip <regex search query> -regex -homepage
+yip <regex search query> --regex --homepage
 ```
 Normal search with the 10 most relevant results:
 ```
-yip <name of package> -limit 10
+yip <name of package> --limit 10
 ```
 
 ## List of flags
 ```
--date
+-h, --help
+```
+shows information on usage and available flags
+```
+-d, --date
 ```
 shows the upload date of the latest version
 ```
--size
+-s, --size
 ```
 shows the size in a human readable format
 ```
--license
+-L, --license
 ```
 shows the license of the package
 ```
--homepage
+-H, --homepage
 ```
 shows the homepage (if has any) of the package
 ```
--limit <number>
+-l <number>, --limit <number>
 ```
 limits to the <number> most relevant result
 ```
--regex
+-r, --regex
 ```
 allows you to use regex in your search query
 *important:* if you use this flag, it will only search in the title, and not in
 the summary or in the keyword and you cannot combine it with the -limit flag
+
+## See it in action
+*IMPORTANT:* This gif is using the outdated flags which won't work anymore. I
+will update it as soon as I can. The usage example/flaglist however updated and
+should be used as a reference.
+![yip in action](http://i.imgur.com/s56ssMx.gif)
 
 ## Config file usage
 If you want to make some flags default, or automatically sudo install or turn
@@ -73,6 +80,7 @@ the options or it won't work!
    only temporary)
 
 ## Other
- - License can be found in LICENSE.txt
- - Suggestions and pull requests are very welcome! :)
+ - Licensed under the GPL3
+ - Suggestions and pull requests are very welcome! See GitHub's project page for
+   TODO-s if you want to contribute. :)
  - If you encounter any bug or have any questions you can post it here or send an e-mail to balazs.saros@gmail.com

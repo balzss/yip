@@ -11,6 +11,7 @@ import webbrowser
 import configparser
 import requests
 import pip
+import argparse
 
 from subprocess import call
 try:
@@ -138,18 +139,39 @@ def regex_search(q):
 
 def set_opts(argv):
 
+    opts = {}
+    conf = {}
+    config = configparser.ConfigParser()
+    rc_file = os.getenv('HOME') + '/.yiprc'
+
+    if os.path.exists(rc_file):
+        config.read(rc_file)
+    else:
+        config.read(os.path.dirname(os.path.realpath(__file__)) + '/.yiprc')
+
+    opts['auto_sudo'] = config.getboolean('general', 'auto_sudo')
+    opts['spacing'] = config.getint('aesthetics', 'spacing')
+    opts['use_colors'] = config.getboolean('aesthetics', 'use_colors')
+    conf['date'] = config.getboolean('auto_opts', 'enable_date')
+    conf['size'] = config.getboolean('auto_opts', 'enable_size')
+    conf['license'] = config.getboolean('auto_opts', 'enable_license')
+    conf['homepage'] = config.getboolean('auto_opts', 'enable_home_page')
+    conf['regex'] = config.getboolean('auto_opts', 'enable_regex')
+    conf['limit'] = config.getint('auto_opts', 'limit')
 
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('query', nargs='+', help='Package name \
+                        to search for')
     parser.add_argument('-s', '--size', action='store_true',
                         dest='size', help='Displays the size of each package',
                         required=False, default=conf['size'])
     parser.add_argument('-H', '--homepage', action='store_true',
-                        dest='homepage', help='Displays the homepage
+                        dest='homepage', help='Displays the homepage \
                         (if has any) of each package',
                         required=False, default=conf['homepage'])
     parser.add_argument('-L', '--license', action='store_true',
-                        dest='license', help='Displays the license(if stated)
+                        dest='license', help='Displays the license(if stated) \
                          of each package',
                         required=False, default=conf['license'])
     parser.add_argument('-r', '--regex', action='store_true',
@@ -162,63 +184,13 @@ def set_opts(argv):
                         dest='date', help='Displays the upload date \
                         of each package',
                         required=False, default=conf['date'])
-    # return parser.parse_args()
 
-
-    # TODO implement argparse
-    opts = {}
-    rc_file = os.getenv('HOME') + '/.yiprc'
-    if os.path.exists(rc_file):
-        config = configparser.ConfigParser()
-        config.read(rc_file)
-        opts['auto_sudo'] = config.getboolean('general', 'auto_sudo')
-        use_colors = config.getboolean('aesthetics', 'use_colors')
-        opts['spacing'] = config.getint('aesthetics', 'spacing')
-        opts['use_colors'] = config.getboolean('aesthetics', 'use_colors')
-        enable_date = config.getboolean('auto_opts', 'enable_date')
-        enable_size = config.getboolean('auto_opts', 'enable_size')
-        enable_license = config.getboolean('auto_opts', 'enable_license')
-        enable_home_page = config.getboolean('auto_opts', 'enable_home_page')
-        enable_regex = config.getboolean('auto_opts', 'enable_regex')
-        config_limit = config.getint('auto_opts', 'limit')
-    else:
-        opts['auto_sudo'] = False
-        use_colors = True
-        opts['spacing'] = 1
-        opts['use_colors'] = True
-        enable_date = False
-        enable_size = False
-        enable_license = False
-        enable_home_page = False
-        enable_regex = False
-        config_limit = 100
+    opts.update(vars(parser.parse_args()))
 
     if not sys.stdout.isatty():
         opts['use_colors'] = False
 
-    if len(argv) > 1:
-        q = []
-        for a in argv[1:]:
-            if a[0] == '-':
-                break
-            q.append(a)
-        q = ' '.join(q)
-    else:
-        q = input(color('yellow', 'Enter search term: ', True))
-        if q == '':
-            sys.exit()
-    opts['query'] = q
-
-    argv += ['-', '-']
-    opts['date'] = True if '-date' in argv[2:] else enable_date
-    opts['size'] = True if '-size' in argv[2:] else enable_size
-    opts['license'] = True if '-license' in argv[2:] else enable_license
-    opts['home_page'] = True if '-homepage' in argv[2:] else enable_home_page
-    opts['regex'] = True if '-regex' in argv[2:] else enable_regex
-    if '-limit' in argv[2:] and argv.index('-limit') != (len(argv)) and argv[argv.index('-limit') + 1].isdigit():
-        opts['limit'] = int(argv[argv.index('-limit') + 1])
-    else:
-        opts['limit'] = config_limit
+    opts['query'] = ' '.join(opts['query'])
 
     return opts
 
