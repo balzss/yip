@@ -7,5 +7,4 @@ dist/
 __pycache__/
 *.so
 *~
-TODO.txt
-devel*
+*.swp
