@@ -140,56 +140,59 @@ def regex_search(q):
 def set_opts(argv):
 
     opts = {}
-    conf = {}
     config = configparser.ConfigParser()
     rc_file = os.getenv('HOME') + '/.yiprc'
-
-    if os.path.exists(rc_file):
-        config.read(rc_file)
-    else:
-        config.read(os.path.dirname(os.path.realpath(__file__)) + '/.yiprc')
+    default_rc = os.path.dirname(os.path.realpath(__file__)) + '/.yiprc'
+    config.read(rc_file if os.path.exists(rc_file) else default_rc)
 
     opts['auto_sudo'] = config.getboolean('general', 'auto_sudo')
     opts['spacing'] = config.getint('aesthetics', 'spacing')
-    opts['use_colors'] = config.getboolean('aesthetics', 'use_colors')
-    conf['date'] = config.getboolean('auto_opts', 'enable_date')
-    conf['size'] = config.getboolean('auto_opts', 'enable_size')
-    conf['license'] = config.getboolean('auto_opts', 'enable_license')
-    conf['homepage'] = config.getboolean('auto_opts', 'enable_home_page')
-    conf['regex'] = config.getboolean('auto_opts', 'enable_regex')
-    conf['limit'] = config.getint('auto_opts', 'limit')
-
+    opts['use_colors'] = config.getboolean('aesthetics', 'use_colors') \
+            if sys.stdout.isatty() else False
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('query', nargs='+', help='Package name \
-                        to search for')
-    parser.add_argument('-s', '--size', action='store_true',
-                        dest='size', help='Displays the size of each package',
-                        required=False, default=conf['size'])
-    parser.add_argument('-H', '--homepage', action='store_true',
-                        dest='homepage', help='Displays the homepage \
-                        (if has any) of each package',
-                        required=False, default=conf['homepage'])
-    parser.add_argument('-L', '--license', action='store_true',
-                        dest='license', help='Displays the license(if stated) \
-                         of each package',
-                        required=False, default=conf['license'])
-    parser.add_argument('-r', '--regex', action='store_true',
-                        dest='regex', help='Enables regex search',
-                        required=False, default=conf['regex'])
-    parser.add_argument('-l', '--limit', type=int, dest='limit',
+
+    parser.add_argument('query', nargs='+',
+                        help='Package name to search for')
+
+    parser.add_argument('-s', '--size',
+                        action='store_true',
+                        dest='size',
+                        help='Displays the size of each package',
+                        required=False,
+                        default=config.getboolean('auto_opts', 'enable_size'))
+    parser.add_argument('-H', '--homepage',
+                        action='store_true',
+                        dest='home_page',
+                        help='Displays the homepage (if has any) of each package',
+                        required=False,
+                        default=config.getboolean('auto_opts', 'enable_home_page'))
+    parser.add_argument('-L', '--license',
+                        action='store_true',
+                        dest='license',
+                        help='Displays the license(if stated) of each package',
+                        required=False,
+                        default=config.getboolean('auto_opts', 'enable_license'))
+    parser.add_argument('-r', '--regex',
+                        action='store_true',
+                        dest='regex',
+                        help='Enables regex search',
+                        required=False,
+                        default=config.getboolean('auto_opts', 'enable_regex'))
+    parser.add_argument('-l', '--limit',
+                        type=int,
+                        dest='limit',
                         help='Limits your results to the N most relevant ones',
-                        required=False, default=conf['limit'])
-    parser.add_argument('-d', '--date', action='store_true',
-                        dest='date', help='Displays the upload date \
-                        of each package',
-                        required=False, default=conf['date'])
+                        required=False,
+                        default=config.getint('auto_opts', 'limit'))
+    parser.add_argument('-d', '--date',
+                        action='store_true',
+                        dest='date',
+                        help='Displays the upload date of each package',
+                        required=False,
+                        default=config.getboolean('auto_opts', 'enable_date'))
 
     opts.update(vars(parser.parse_args()))
-
-    if not sys.stdout.isatty():
-        opts['use_colors'] = False
-
     opts['query'] = ' '.join(opts['query'])
 
     return opts
