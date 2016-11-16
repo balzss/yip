@@ -137,60 +137,67 @@ def regex_search(q):
     return regex_results
 
 
-def set_opts(argv):
+def exact_search(q):
+    version = client.package_releases(q)
+    if not version:
+        print('There is no package named %s' % q)
+        exit()
 
-    opts = {}
+    package_info = client.release_data(q, version[0])
+    result = {'name': package_info['name'],
+              'version': package_info['version'],
+              'summary': package_info['summary']}
+    return result
+
+
+def set_opts():
+
     config = configparser.ConfigParser()
     rc_file = os.getenv('HOME') + '/.yiprc'
     default_rc = os.path.dirname(os.path.realpath(__file__)) + '/.yiprc'
     config.read(rc_file if os.path.exists(rc_file) else default_rc)
 
-    opts['auto_sudo'] = config.getboolean('general', 'auto_sudo')
-    opts['spacing'] = config.getint('aesthetics', 'spacing')
-    opts['use_colors'] = config.getboolean('aesthetics', 'use_colors') \
-            if sys.stdout.isatty() else False
+    opts = {'auto_sudo': config.getboolean('general', 'auto_sudo'),
+            'spacing': config.getint('aesthetics', 'spacing'),
+            'use_colors': config.getboolean('aesthetics', 'use_colors') \
+                    if sys.stdout.isatty() else False}
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument('query', nargs='+',
                         help='Package name to search for')
 
-    parser.add_argument('-s', '--size',
-                        action='store_true',
-                        dest='size',
-                        help='Displays the size of each package',
+    parser.add_argument('-p', '--plusinfo',
+                        dest='plusinfo',
+                        nargs='+',
+                        help='Allow you to display the following additional \
+                        infos about each package:\n  size: Size of given \
+                        package\n  date: Upload date of the latest version\n  \
+                        homepage: Homepage of package if exists\n  license: \
+                        License of given package',
+                        choices=['size', 'date', 'homepage', 'license']
                         required=False,
-                        default=config.getboolean('auto_opts', 'enable_size'))
-    parser.add_argument('-H', '--homepage',
-                        action='store_true',
-                        dest='home_page',
-                        help='Displays the homepage (if has any) of each package',
+                        default=config.getboolean('auto_opts', 'plusinfo'))
+
+    parser.add_argument('-t', '--type',
+                        dest='type',
+                        nargs='+',
+                        help='Allows you to choose from the following \
+                              search types:\n  normal: multiple results \
+                              oredered by relevance\n  regex: only the results \
+                              that match the regex query\n  exact: returns \
+                              package info if query exactly matches and exits \
+                              if not',
+                        choices=['normal', 'regex', 'exact']
                         required=False,
-                        default=config.getboolean('auto_opts', 'enable_home_page'))
-    parser.add_argument('-L', '--license',
-                        action='store_true',
-                        dest='license',
-                        help='Displays the license(if stated) of each package',
-                        required=False,
-                        default=config.getboolean('auto_opts', 'enable_license'))
-    parser.add_argument('-r', '--regex',
-                        action='store_true',
-                        dest='regex',
-                        help='Enables regex search',
-                        required=False,
-                        default=config.getboolean('auto_opts', 'enable_regex'))
+                        default=config.getboolean('auto_opts', 'search_type'))
+
     parser.add_argument('-l', '--limit',
                         type=int,
                         dest='limit',
                         help='Limits your results to the N most relevant ones',
                         required=False,
                         default=config.getint('auto_opts', 'limit'))
-    parser.add_argument('-d', '--date',
-                        action='store_true',
-                        dest='date',
-                        help='Displays the upload date of each package',
-                        required=False,
-                        default=config.getboolean('auto_opts', 'enable_date'))
 
     opts.update(vars(parser.parse_args()))
     opts['query'] = ' '.join(opts['query'])
@@ -321,9 +328,62 @@ def print_options(pp_choise, q):
             call('sudo pip uninstall %s' % p_choise['name'], shell=True)
 
 
+def package_menu(package_info):
+    if package_info['name'] in installed:
+        installed = True
+        install_option[
+        '[r]emove'
+        p_status = 'INSTALLED (latest)'
+
+        if installed[package_info['name']] != package_info['version']:
+            install_option += '\n  [u]pdate to (%s)' % p_choise['version']
+            p_status = 'INSTALLED (%s)' % installed[p_choise['name']]
+
+    else:
+        installed = False
+        install_option = '[i]nstall'
+        p_status = 'Not installed'
+
+    parsed_info = get_info(package_info['name'],
+                           package_info['version'],
+                           ['home_page', 'date', 'license', 'size'])
+
+    p_info = '%s\n%s\n%s\n%s' % (parsed_info['date'],
+                                 parsed_info['license'],
+                                 parsed_info['size'],
+                                 parsed_info['home_page'])
+
+    print(color('blue', '\nName: %s' % p_choise['name']))
+    print(color('purple', 'Version: %s\nStatus: %s' % (p_choise['version'], p_status)))
+    print(color('grey', p_info))
+
+    print(color('yellow', '\nOptions:'))
+    print(wrap('[o]pen homepage in browser'))
+    print(wrap(install_option))
+
+    o_choise = input(color('yellow', '\n>>> '))
+
+    if o_choise in install_option.keys():
+        print(install_option[o_choise]['install_msg'])
+        install = install_option[o_choise]['install']
+        if exec_choice(package_info['name'], install, opts['auto_sudo']) > 0:
+            if input(color('yellow', '\nRetry as root [y]? ')) != 'y':
+                sys.exit()
+            exec_choice(package_info['name'], install, True)
+    elif o_choise == 'o':
+        print('Opening in browser...')
+        webbrowser.open(parsed_info['home_page'].split(' ')[-1], new=2)
+        print_options(package_info)
+
+
+def exec_choice(name, install, sudo):
+    return call('%spip %s %s' % ('sudo' if sudo else '',
+                                 'install -U' if install else 'uninstall',
+                                 name), shell=True)
+
 if __name__ == "__main__":
     installed = get_installed()
-    opts = set_opts(sys.argv)
+    opts = set_opts()
 
     ordered_packages = regex_search(opts['query']) if opts['regex'] \
             else normal_search(opts['query'], opts['limit'])
