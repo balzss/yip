@@ -1,5 +1,3 @@
-**IMPORTANT** I'm in the middle of refactoring and managed to broke everything. If you want working code, use the PyPI repo. I'll resolve this (hopefully) by tomorrow
-
 ## Intro
 If you have ever tried to search PyPI via pip you know how difficult it can be.
 Yip is an attempt to resolve that frustration and create a beautiful and feature

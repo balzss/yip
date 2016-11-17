@@ -19,6 +19,50 @@ try:
 except ImportError:
     import xmlrpc.client as xmlrpclib
 
+def create_default_config(location):
+    with open(location, 'w+') as rc:
+        rc.write('''# Copy this files content to ~/.yiprc
+# make sure every option is set otherwise it won't work
+# before every option there is a comment explaining the usage of that option
+# if you have any problem, delete your existing config file and replace it
+# with this fresh copy
+# more info at https://www.github.com/balzss/yip
+
+[aesthetics]
+# True if you want a colororized output, False if you don't
+# this has no effect on the output when it is redirected, because it is never
+# colorized
+use_colors = True
+
+# the number of empy lines printed between each result
+spacing = 1
+
+[general]
+# True if you want to use 'sudo pip install <package_name>', False
+# if you want to use 'pip install <package_name>' (same with uninstall)
+auto_sudo = True
+
+[auto_opts]
+# True if you want to use the '-date' flag automatically, False if you don't
+enable_date = False
+
+# True if you want to use the '-size' flag automatically, False if you don't
+enable_size = False
+
+# True if you want to use the '-license' flag automatically, False if you don't
+enable_license = False
+
+# True if you want to use the '-homepage' flag automatically, False if you don't
+enable_home_page = False
+
+# True if you want to use the '-regex' flag automatically, False if you don't
+enable_regex = False
+
+# The number of packages you want to display by default, for example if
+# you want only the 15 most relevant results set it to 15
+# it doesn't work when you are using the '-regex' flag
+limit = 99''')
+
 client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
 
 # when user exits with Ctrl-C, don't show error msg
@@ -142,8 +186,9 @@ def set_opts(argv):
     opts = {}
     config = configparser.ConfigParser()
     rc_file = os.getenv('HOME') + '/.yiprc'
-    default_rc = os.path.dirname(os.path.realpath(__file__)) + '/.yiprc'
-    config.read(rc_file if os.path.exists(rc_file) else default_rc)
+    if not os.path.exists(rc_file):
+        create_default_config(rc_file)
+    config.read(rc_file)
 
     opts['auto_sudo'] = config.getboolean('general', 'auto_sudo')
     opts['spacing'] = config.getint('aesthetics', 'spacing')

@@ -2,9 +2,8 @@ from setuptools import setup
 
 setup(
     name='yip',
-    version='1.2',
-    description='Frontend for searching PyPI, a feature rich alternative \
-            to pip search',
+    version='1.2.5',
+    description='Frontend for searching PyPI, a feature rich alternative to pip search',
     url='https://github.com/balzss/yip',
     author='balzss',
     author_email='balazs.saros@gmail.com',
