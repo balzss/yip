@@ -304,7 +304,6 @@ def create_list(ordered_res, opts):
     extra_infos = {}
     while not result_queue.empty():
         extra_info = result_queue.get()
-        print(extra_info)
         extra_infos[extra_info['key']] = extra_info
 
     final_formatted_list = []
