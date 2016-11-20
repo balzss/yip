@@ -141,11 +141,14 @@ def get_info(name, version, query):
 
 
 def get_extra_info_worker(job_queue, result_queue):
+    global progress_iter, progress_len
     while True:
         args = job_queue.get()
         extra_info = get_info(args['name'], args['version'], args['info_query'])
         extra_info['key'] = args['key']
         result_queue.put(extra_info)
+        progress_iter += 1
+        print_progress(progress_iter, progress_len)
         job_queue.task_done()
 
 
@@ -258,6 +261,8 @@ def set_opts(argv):
 
 
 def create_list(ordered_res, opts):
+    global progress_len
+
     job_queue = Queue()
     result_queue = Queue()
     for i in range(16):
@@ -269,6 +274,7 @@ def create_list(ordered_res, opts):
         worker.setDaemon(True)
         worker.start()
 
+    progress_len = len(ordered_res)
     formatted_list = []
     for i, r in enumerate(ordered_res):
 
@@ -403,8 +409,22 @@ def print_options(pp_choise, q):
             call('sudo pip uninstall %s' % p_choise['name'], shell=True)
 
 
+#  http://stackoverflow.com/a/34325723
+def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=100):
+    format_str = "{0:." + str(decimals) + "f}"
+    percent = format_str.format(100 * (iteration / float(total)))
+    filled_length = int(round(bar_length * iteration / float(total)))
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+    sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percent, '%', suffix)),
+    if iteration == total:
+        sys.stdout.write('\n\n')
+    sys.stdout.flush()
+
+
 if __name__ == "__main__":
     locale.setlocale(locale.LC_ALL, '')
+    progress_iter = 0
+    progress_len = 0
 
     installed = get_installed()
     opts = set_opts(sys.argv)
