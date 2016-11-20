@@ -8,8 +8,10 @@ import re
 import signal
 import sys
 import textwrap
+import threading
 import webbrowser
 from datetime import datetime
+from queue import Queue
 from subprocess import call
 
 import pip
@@ -138,6 +140,15 @@ def get_info(name, version, query):
     return return_info
 
 
+def get_extra_info_worker(job_queue, result_queue):
+    while True:
+        args = job_queue.get()
+        extra_info = get_info(args['name'], args['version'], args['info_query'])
+        extra_info['key'] = args['key']
+        result_queue.put(extra_info)
+        job_queue.task_done()
+
+
 def get_installed():
     return {i.key: i.version for i in pip.get_installed_distributions()}
 
@@ -247,6 +258,17 @@ def set_opts(argv):
 
 
 def create_list(ordered_res, opts):
+    job_queue = Queue()
+    result_queue = Queue()
+    for i in range(16):
+        worker = threading.Thread(
+            target=get_extra_info_worker,
+            args=(job_queue, result_queue,),
+            name='worker-{}'.format(i),
+        )
+        worker.setDaemon(True)
+        worker.start()
+
     formatted_list = []
     for i, r in enumerate(ordered_res):
 
@@ -264,24 +286,38 @@ def create_list(ordered_res, opts):
                 f_installed += '(%s)' % installed[name]
             f_installed = color('purple', f_installed)
 
-        extra_info = {}
-        f_extra = ''
+        formatted_list.append({'name': name,
+                               'installed': f_installed,
+                               'summary': description,
+                               'version': version,
+                               'extra': ''})
+
         info_query = [key for key, value in opts.items() if value is True]
         if info_query:
-            extra_info = get_info(name, version, info_query)
-            f_extra = ' | '.join([color('grey', value) for key, value in extra_info.items() if key != 'home_page'])
+            job_queue.put({'key': i,
+                           'name': name,
+                           'version': version,
+                           'info_query': info_query})
 
-        f_name = color('blue', '[%d] %s (%s)' % (i, name, version))
+    job_queue.join()
 
-        info_dict = {'name': f_name,
-                     'installed': f_installed,
-                     'extra': f_extra,
-                     'summary': description}
+    extra_infos = {}
+    while not result_queue.empty():
+        extra_info = result_queue.get()
+        print(extra_info)
+        extra_infos[extra_info['key']] = extra_info
+
+    final_formatted_list = []
+    final_formatted_list[:] = formatted_list
+    for key, item in enumerate(formatted_list):
+        extra_info = extra_infos[key]
+        extra_info.pop('key', None)
+        f_extra = ' | '.join([color('grey', value) for key, value in extra_info.items() if key != 'home_page'])
+        final_formatted_list[key]['extra'] = f_extra
         if 'home_page' in extra_info:
-            info_dict['home_page'] = extra_info['home_page']
-        formatted_list.append(info_dict)
+            final_formatted_list[key]['home_page'] = extra_info['home_page']
 
-    return formatted_list
+    return final_formatted_list
 
 
 def get_choice():
@@ -294,11 +330,11 @@ def print_list(formatted_list, q):
     if len(formatted_list) == 0:
         print(color('yellow', '\nNo results for ') + color('blue', out))
         sys.exit()
-    for r in formatted_list:
-        name = r['name']
+    for i, r in enumerate(formatted_list):
+        f_name = color('blue', '[%d] %s (%s)' % (i, r['name'], r['version']))
         installed = r['installed']
         extra = r['extra']
-        print('%s%s %s' % (name, installed, extra))
+        print('%s%s %s' % (f_name, installed, extra))
         if 'home_page' in r:
             print(color('yellow', wrap(r['home_page'])))
         print('%s%s' % (wrap(r['summary']), '\n'*opts['spacing']))
