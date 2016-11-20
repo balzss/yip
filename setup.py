@@ -10,7 +10,7 @@ setup(
     license='GPLv3',
     keywords='pip frontend user-friendly CLI command-line',
     install_requires=[
-        'requests',
+        'requests', 'pip'
     ],
     scripts=['yip']
 )

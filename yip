@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 
-import requests
-import pip
+import argparse
+import configparser
+import locale
 import os
 import re
+import signal
 import sys
 import textwrap
-import signal
 import webbrowser
-import configparser
-import requests
-import pip
-import argparse
-
+from datetime import datetime
 from subprocess import call
+
+import pip
+import requests
+
 try:
     import xmlrpclib
 except ImportError:
     import xmlrpc.client as xmlrpclib
+
 
 def create_default_config(location):
     with open(location, 'w+') as rc:
@@ -80,11 +82,9 @@ colors = {'red': '\033[0;31m',
           'endc': '\033[0m'}
 
 
-def color(color, string, disable=False):
-    if disable:
-        return string
-    elif opts['use_colors']:
-        return colors.get(color) + string + colors.get('endc')
+def color(color, string):
+    if opts['use_colors']:
+        return colors[color] + string + colors['endc']
     else:
         return string
 
@@ -102,7 +102,11 @@ def human_size(b):
     while b >= 1024:
         b /= 1024.
         i += 1
-    # will give index error with packages bigger than 1025 PetaByte
+
+    # b > 1025 PetaByte
+    if i > 5:
+        return "Impossibly large"
+
     return '%.2f %s' % (b, size_suffixes[i])
 
 
@@ -115,22 +119,21 @@ def get_info(name, version, query):
 
     return_info = {}
 
+    if 'license' in query and data['info']['license'] != 'UNKNOWN':
+        return_info['license'] = data['info']['license'].split('\n')[0]
+
+    if 'home_page' in query and data['info']['home_page'] != 'UNKNOWN':
+        return_info['home_page'] = data['info']['home_page']
+
+    if not ver_info:
+        return return_info
+
     if 'date' in query:
-        return_info['date'] = 'Uploaded on: '
-        return_info['date'] += ver_info['upload_time'].split('T')[0]\
-            if ver_info else 'UNKNOWN'
+        date = datetime.strptime(ver_info['upload_time'].split('T')[0], '%Y-%m-%d')
+        return_info['date'] = datetime.strftime(date, '%x')
 
     if 'size' in query:
-        return_info['size'] = 'Size: '
-        return_info['size'] += human_size(ver_info['size']) if ver_info else 'UNKNOWN'
-
-    if 'license' in query:
-        return_info['license'] = 'License: '
-        return_info['license'] += data['info']['license'].split('\n')[0]
-
-    if 'home_page' in query:
-        return_info['home_page'] = 'Home Page: '
-        return_info['home_page'] += data['info']['home_page']
+        return_info['size'] = human_size(ver_info['size'])
 
     return return_info
 
@@ -206,6 +209,12 @@ def set_opts(argv):
                         help='Displays the size of each package',
                         required=False,
                         default=config.getboolean('auto_opts', 'enable_size'))
+    parser.add_argument('-d', '--date',
+                        action='store_true',
+                        dest='date',
+                        help='Displays the upload date of each package',
+                        required=False,
+                        default=config.getboolean('auto_opts', 'enable_date'))
     parser.add_argument('-H', '--homepage',
                         action='store_true',
                         dest='home_page',
@@ -230,12 +239,6 @@ def set_opts(argv):
                         help='Limits your results to the N most relevant ones',
                         required=False,
                         default=config.getint('auto_opts', 'limit'))
-    parser.add_argument('-d', '--date',
-                        action='store_true',
-                        dest='date',
-                        help='Displays the upload date of each package',
-                        required=False,
-                        default=config.getboolean('auto_opts', 'enable_date'))
 
     opts.update(vars(parser.parse_args()))
     opts['query'] = ' '.join(opts['query'])
@@ -266,10 +269,9 @@ def create_list(ordered_res, opts):
         info_query = [key for key, value in opts.items() if value is True]
         if info_query:
             extra_info = get_info(name, version, info_query)
-            f_extra = ' | '.join([value for key, value in extra_info.items() if key != 'home_page'])
-            f_extra = color('grey', f_extra)
+            f_extra = ' | '.join([color('grey', value) for key, value in extra_info.items() if key != 'home_page'])
 
-        f_name = color('blue', '[%d]%s (%s)' % (i, name, version))
+        f_name = color('blue', '[%d] %s (%s)' % (i, name, version))
 
         info_dict = {'name': f_name,
                      'installed': f_installed,
@@ -367,6 +369,8 @@ def print_options(pp_choise, q):
 
 
 if __name__ == "__main__":
+    locale.setlocale(locale.LC_ALL, '')
+
     installed = get_installed()
     opts = set_opts(sys.argv)
 
