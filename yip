@@ -67,6 +67,7 @@ enable_regex = False
 # it doesn't work when you are using the '-regex' flag
 limit = 99''')
 
+
 client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
 
 # when user exits with Ctrl-C, don't show error msg
@@ -80,13 +81,12 @@ colors = {'red': '\033[0;31m',
           'blue': '\033[1;34m',
           'purple': '\033[1;35m',
           'cyan': '\033[1;36m',
-          'grey': '\033[0;37m',
-          'endc': '\033[0m'}
+          'grey': '\033[0;37m'}
 
 
-def color(color, string):
+def color(color_id, string):
     if opts['use_colors']:
-        return colors[color] + string + colors['endc']
+        return colors[color_id] + string + '\033[0m'
     else:
         return string
 
@@ -117,7 +117,7 @@ def get_info(name, version, query):
     url = 'https://pypi.python.org/pypi/%s/json' % name
     data = requests.get(url).json()
     ver = data['info']['version']
-    ver_info = data['releases'][ver][0] if data['releases'][ver] else ''
+    ver_info = data['releases'][ver][0] if data['releases'][ver] else {}
 
     return_info = {}
 
@@ -141,14 +141,14 @@ def get_info(name, version, query):
 
 
 def get_extra_info_worker(job_queue, result_queue):
-    global progress_iter, progress_len
+    global loaded_results, result_count
     while True:
         args = job_queue.get()
         extra_info = get_info(args['name'], args['version'], args['info_query'])
         extra_info['key'] = args['key']
         result_queue.put(extra_info)
-        progress_iter += 1
-        print_progress(progress_iter, progress_len)
+        loaded_results += 1
+        print_progress(loaded_results, result_count)
         job_queue.task_done()
 
 
@@ -199,7 +199,6 @@ def regex_search(q):
 
 
 def set_opts(argv):
-
     opts = {}
     config = configparser.ConfigParser()
     rc_file = os.getenv('HOME') + '/.yiprc'
@@ -210,7 +209,7 @@ def set_opts(argv):
     opts['auto_sudo'] = config.getboolean('general', 'auto_sudo')
     opts['spacing'] = config.getint('aesthetics', 'spacing')
     opts['use_colors'] = config.getboolean('aesthetics', 'use_colors') \
-            if sys.stdout.isatty() else False
+        if sys.stdout.isatty() else False
 
     parser = argparse.ArgumentParser()
 
@@ -261,7 +260,7 @@ def set_opts(argv):
 
 
 def create_list(ordered_res, opts):
-    global progress_len
+    global result_count
 
     job_queue = Queue()
     result_queue = Queue()
@@ -274,7 +273,7 @@ def create_list(ordered_res, opts):
         worker.setDaemon(True)
         worker.start()
 
-    progress_len = len(ordered_res)
+    result_count = len(ordered_res)
     formatted_list = []
     for i, r in enumerate(ordered_res):
 
@@ -284,12 +283,12 @@ def create_list(ordered_res, opts):
         description = '---' if not description else description
         f_installed = ''
 
-        if name in installed:
+        if name in installed_packages:
             f_installed = ' INSTALLED: '
-            if installed[name] == version:
+            if installed_packages[name] == version:
                 f_installed += '(latest)'
             else:
-                f_installed += '(%s)' % installed[name]
+                f_installed += '(%s)' % installed_packages[name]
             f_installed = color('purple', f_installed)
 
         formatted_list.append({'name': name,
@@ -342,31 +341,31 @@ def print_list(formatted_list, q):
         print('%s%s %s' % (f_name, installed, extra))
         if 'home_page' in r:
             print(color('yellow', wrap(r['home_page'])))
-        print('%s%s' % (wrap(r['summary']), '\n'*opts['spacing']))
+        print('%s%s' % (wrap(r['summary']), '\n' * opts['spacing']))
     choice = get_choice()
     print_options(choice, q)
 
 
-def print_options(pp_choise, q):
-    if not pp_choise.isdigit() or 0 > int(pp_choise) >= len(ordered_packages):
+def print_options(pp_choice, q):
+    if not pp_choice.isdigit() or 0 > int(pp_choice) >= len(ordered_packages):
         sys.exit()
     else:
-        p_choise = ordered_packages[int(pp_choise)]
+        p_choice = ordered_packages[int(pp_choice)]
 
-    if p_choise['name'] in installed:
+    if p_choice['name'] in installed_packages:
         install_option = '[r]emove'
         p_status = 'INSTALLED (latest)'
 
-        if installed[p_choise['name']] != p_choise['version']:
-            install_option += '\n  [u]pdate to (%s)' % p_choise['version']
-            p_status = 'INSTALLED (%s)' % installed[p_choise['name']]
+        if installed_packages[p_choice['name']] != p_choice['version']:
+            install_option += '\n  [u]pdate to (%s)' % p_choice['version']
+            p_status = 'INSTALLED (%s)' % installed_packages[p_choice['name']]
 
     else:
         install_option = '[i]nstall'
         p_status = 'Not installed'
 
-    parsed_info = get_info(p_choise['name'],
-                           p_choise['version'],
+    parsed_info = get_info(p_choice['name'],
+                           p_choice['version'],
                            ['home_page', 'date', 'license', 'size'])
 
     p_info = '%s\n%s\n%s\n%s' % (parsed_info['date'],
@@ -374,8 +373,8 @@ def print_options(pp_choise, q):
                                  parsed_info['size'],
                                  parsed_info['home_page'])
 
-    print(color('blue', '\nName: %s' % p_choise['name']))
-    print(color('purple', 'Version: %s\nStatus: %s' % (p_choise['version'], p_status)))
+    print(color('blue', '\nName: %s' % p_choice['name']))
+    print(color('purple', 'Version: %s\nStatus: %s' % (p_choice['version'], p_status)))
     print(color('grey', p_info))
 
     print(color('yellow', '\nOptions:'))
@@ -390,26 +389,26 @@ def print_options(pp_choise, q):
             (o_choise == 'u' and '[u]' in install_option):
         print('Installing package...')
         if opts['auto_sudo']:
-            call('sudo pip install %s -U' % p_choise['name'], shell=True)
-        elif(pip.main(['install', '--upgrade', p_choise['name']]) > 0):
+            call('sudo pip install %s -U' % p_choice['name'], shell=True)
+        elif pip.main(['install', '--upgrade', p_choice['name']]) > 0:
             if input(color('yellow', '\nRetry as root [y]? ')) != 'y':
                 sys.exit()
-            call('sudo pip install %s -U' % p_choise['name'], shell=True)
+            call('sudo pip install %s -U' % p_choice['name'], shell=True)
     elif o_choise == 'o':
         print('Opening in browser...')
         webbrowser.open(parsed_info['home_page'].split(' ')[-1], new=2)
-        print_options(pp_choise)
+        print_options(pp_choice)
     elif o_choise == 'r' and '[r]' in install_option:
         print('Removing package...')
         if opts['auto_sudo']:
-            call('sudo pip uninstall %s' % p_choise['name'], shell=True)
-        elif(pip.main(['uninstall', p_choise['name']]) > 0):
+            call('sudo pip uninstall %s' % p_choice['name'], shell=True)
+        elif pip.main(['uninstall', p_choice['name']]) > 0:
             if input(color('yellow', '\nRetry as root [y]? ')) != 'y':
                 sys.exit()
-            call('sudo pip uninstall %s' % p_choise['name'], shell=True)
+            call('sudo pip uninstall %s' % p_choice['name'], shell=True)
 
 
-#  http://stackoverflow.com/a/34325723
+# http://stackoverflow.com/a/34325723
 def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=100):
     format_str = "{0:." + str(decimals) + "f}"
     percent = format_str.format(100 * (iteration / float(total)))
@@ -422,15 +421,16 @@ def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_lengt
 
 
 if __name__ == "__main__":
-    locale.setlocale(locale.LC_ALL, '')
-    progress_iter = 0
-    progress_len = 0
-
-    installed = get_installed()
     opts = set_opts(sys.argv)
 
-    ordered_packages = regex_search(opts['query']) if opts['regex'] \
-            else normal_search(opts['query'], opts['limit'])
+    loaded_results = 0
+    result_count = 1
+    print_progress(loaded_results, result_count)
 
+    installed_packages = get_installed()
+    locale.setlocale(locale.LC_ALL, '')
+
+    ordered_packages = regex_search(opts['query']) if opts['regex'] \
+        else normal_search(opts['query'], opts['limit'])
     formatted_packages = create_list(ordered_packages, opts)
     print_list(formatted_packages, opts['query'])
