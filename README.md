@@ -76,7 +76,7 @@ the options or it won't work!
 
 ## Requirements
  - *OS-wise:* Developed and tested on Linux however it should work on OSX
- - *software-wise:* Python 3, pip and request(will switch to xmlrpc, this is
+ - *software-wise:* Python 3, pip and requests(will switch to xmlrpc, this is
    only temporary)
 
 ## Other
