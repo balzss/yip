@@ -16,11 +16,51 @@ from subprocess import call
 
 import pip
 import requests
+import xmlrpc.client as xmlrpclib
 
-try:
-    import xmlrpclib
-except ImportError:
-    import xmlrpc.client as xmlrpclib
+class Formatter:
+
+    size_suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+
+    colors = {'red': '\033[0;31m',
+            'green': '\033[0;32m',
+            'yellow': '\033[0;33m',
+            'blue': '\033[1;34m',
+            'purple': '\033[1;35m',
+            'cyan': '\033[1;36m',
+            'grey': '\033[0;37m',
+            'endc': '\033[0m'}
+
+    def __init__(self, indent, wrap_width, use_colors):
+        self.indent = indent
+        self.wrap_width = wrap_width
+        self.use_colors = use_colors
+
+
+    def color(self, color_id, string):
+        return self.colors[color_id] + string + self.colors['endc'] \
+                if self.use_colors else string
+
+
+    def wrap(self, t):
+        return textwrap.fill(t,
+                            initial_indent=' ' * self.indent,
+                            subsequent_indent=' ' * self.indent,
+                            width=self.wrap_width,
+                            replace_whitespace=False)
+
+
+    def human_size(self, b):
+        i = 0
+        while b >= 1024:
+            b /= 1024.
+            i += 1
+
+        # b > 1025 PetaByte
+        if i > 5:
+            return 'Holy fucking large'
+
+        return '%.2f %s' % (b, self.size_suffixes[i])
 
 
 def create_default_config(location):
@@ -68,50 +108,6 @@ enable_regex = False
 limit = 99''')
 
 
-client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
-
-# when user exits with Ctrl-C, don't show error msg
-signal.signal(signal.SIGINT, lambda x, y: sys.exit())
-
-size_suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-
-colors = {'red': '\033[0;31m',
-          'green': '\033[0;32m',
-          'yellow': '\033[0;33m',
-          'blue': '\033[1;34m',
-          'purple': '\033[1;35m',
-          'cyan': '\033[1;36m',
-          'grey': '\033[0;37m'}
-
-
-def color(color_id, string):
-    if opts['use_colors']:
-        return colors[color_id] + string + '\033[0m'
-    else:
-        return string
-
-
-def wrap(t):
-    return textwrap.fill(t,
-                         initial_indent='  ',
-                         subsequent_indent='  ',
-                         width=80,
-                         replace_whitespace=False)
-
-
-def human_size(b):
-    i = 0
-    while b >= 1024:
-        b /= 1024.
-        i += 1
-
-    # b > 1025 PetaByte
-    if i > 5:
-        return "Impossibly large"
-
-    return '%.2f %s' % (b, size_suffixes[i])
-
-
 def get_info(name, version, query):
     # TODO rewrite this part and use xmlrpc instead of json
     url = 'https://pypi.python.org/pypi/%s/json' % name
@@ -135,7 +131,7 @@ def get_info(name, version, query):
         return_info['date'] = datetime.strftime(date, '%x')
 
     if 'size' in query:
-        return_info['size'] = human_size(ver_info['size'])
+        return_info['size'] = fmt.human_size(ver_info['size'])
 
     return return_info
 
@@ -289,7 +285,7 @@ def create_list(ordered_res, opts):
                 f_installed += '(latest)'
             else:
                 f_installed += '(%s)' % installed_packages[name]
-            f_installed = color('purple', f_installed)
+            f_installed = fmt.color('purple', f_installed)
 
         formatted_list.append({'name': name,
                                'installed': f_installed,
@@ -316,7 +312,7 @@ def create_list(ordered_res, opts):
     for key, item in enumerate(formatted_list):
         extra_info = extra_infos[key]
         extra_info.pop('key', None)
-        f_extra = ' | '.join([color('grey', value) for key, value in extra_info.items() if key != 'home_page'])
+        f_extra = ' | '.join([fmt.color('grey', value) for key, value in extra_info.items() if key != 'home_page'])
         final_formatted_list[key]['extra'] = f_extra
         if 'home_page' in extra_info:
             final_formatted_list[key]['home_page'] = extra_info['home_page']
@@ -325,23 +321,23 @@ def create_list(ordered_res, opts):
 
 
 def get_choice():
-    print(color('yellow', '=====Enter package number for options====='))
-    return input(color('yellow', '>>> '))
+    print(fmt.color('yellow', '=====Enter package number for options====='))
+    return input(fmt.color('yellow', '>>> '))
 
 
 def print_list(formatted_list, q):
     out = ' '.join(q) if type(q) is list else q
     if len(formatted_list) == 0:
-        print(color('yellow', '\nNo results for ') + color('blue', out))
+        print(fmt.color('yellow', '\nNo results for ') + fmt.color('blue', out))
         sys.exit()
     for i, r in enumerate(formatted_list):
-        f_name = color('blue', '[%d] %s (%s)' % (i, r['name'], r['version']))
+        f_name = fmt.color('blue', '[%d] %s (%s)' % (i, r['name'], r['version']))
         installed = r['installed']
         extra = r['extra']
         print('%s%s %s' % (f_name, installed, extra))
         if 'home_page' in r:
-            print(color('yellow', wrap(r['home_page'])))
-        print('%s%s' % (wrap(r['summary']), '\n' * opts['spacing']))
+            print(fmt.color('yellow', fmt.wrap(r['home_page'])))
+        print('%s%s' % (fmt.wrap(r['summary']), '\n' * opts['spacing']))
     choice = get_choice()
     print_options(choice, q)
 
@@ -373,16 +369,16 @@ def print_options(pp_choice, q):
                                  parsed_info['size'],
                                  parsed_info['home_page'])
 
-    print(color('blue', '\nName: %s' % p_choice['name']))
-    print(color('purple', 'Version: %s\nStatus: %s' % (p_choice['version'], p_status)))
-    print(color('grey', p_info))
+    print(fmt.color('blue', '\nName: %s' % p_choice['name']))
+    print(fmt.color('purple', 'Version: %s\nStatus: %s' % (p_choice['version'], p_status)))
+    print(fmt.color('grey', p_info))
 
-    print(color('yellow', '\nOptions:'))
-    print(wrap('[b]ack to search results'))
-    print(wrap('[o]pen homepage in browser'))
-    print(wrap(install_option))
+    print(fmt.color('yellow', '\nOptions:'))
+    print(fmt.wrap('[b]ack to search results'))
+    print(fmt.wrap('[o]pen homepage in browser'))
+    print(fmt.wrap(install_option))
 
-    o_choise = input(color('yellow', '\n>>> '))
+    o_choise = input(fmt.color('yellow', '\n>>> '))
     if o_choise == 'b':
         print_list(formatted_packages, q)
     elif o_choise == 'i' and '[i]' in install_option or \
@@ -391,7 +387,7 @@ def print_options(pp_choice, q):
         if opts['auto_sudo']:
             call('sudo pip install %s -U' % p_choice['name'], shell=True)
         elif pip.main(['install', '--upgrade', p_choice['name']]) > 0:
-            if input(color('yellow', '\nRetry as root [y]? ')) != 'y':
+            if input(fmt.color('yellow', '\nRetry as root [y]? ')) != 'y':
                 sys.exit()
             call('sudo pip install %s -U' % p_choice['name'], shell=True)
     elif o_choise == 'o':
@@ -403,7 +399,7 @@ def print_options(pp_choice, q):
         if opts['auto_sudo']:
             call('sudo pip uninstall %s' % p_choice['name'], shell=True)
         elif pip.main(['uninstall', p_choice['name']]) > 0:
-            if input(color('yellow', '\nRetry as root [y]? ')) != 'y':
+            if input(fmt.color('yellow', '\nRetry as root [y]? ')) != 'y':
                 sys.exit()
             call('sudo pip uninstall %s' % p_choice['name'], shell=True)
 
@@ -421,7 +417,15 @@ def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_lengt
 
 
 if __name__ == "__main__":
+
+    client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
+
+    # when user exits with Ctrl-C, don't show error msg
+    signal.signal(signal.SIGINT, lambda x, y: sys.exit())
+
+
     opts = set_opts(sys.argv)
+    fmt = Formatter(2, 80, opts['use_colors'])
 
     loaded_results = 0
     result_count = 1
