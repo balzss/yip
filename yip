@@ -62,6 +62,43 @@ class Formatter:
 
         return '%.2f %s' % (b, self.size_suffixes[i])
 
+class Package:
+
+    def __init__(self, label, version, summary=None, plus_infos=None):
+        self.label = label
+        self.version = version if version else self.get_version()
+        self.version_on_system = self.get_version_on_system()
+        self.summary = summary if summary else self.get_summary()
+        self.plus_infos = plus_infos if plus_infos else {}
+
+    def update_plus_info(self, needed_info):
+        return_info = {}
+        if 'size' in needed_info or 'date' in needed_info:
+            ru = client.release_urls(self.label, self.version)[0]
+            return_info['size'] = ru['size']
+            return_info['date'] = ru['upload_time']
+        if 'homepage' in needed_info or 'license' in needed_info:
+            data = client.release_data(self.label, self.version)
+            return_info['homepage'] = data['home_page']
+            return_info['license'] = data['license']
+        self.plus_infos.update(return_info)
+
+    def get_version(self):
+        return clien.package_releases(self.label)[-1]
+
+    def get_version_on_system(self):
+        return installed_packages[self.label] \
+                if self.label in installed_packages else None
+
+    def get_summary(self):
+        return client.release_data(self.label, self.version)['summary']
+
+    def print_list_format(self):
+        return '%s  -  %s\n%s' % (self.label, self.version, self.summary)
+
+    def print_menu_format(self):
+        pass
+
 
 def create_default_config(location):
     with open(location, 'w+') as rc:
@@ -152,27 +189,28 @@ def get_installed():
     return {i.key: i.version for i in pip.get_installed_distributions()}
 
 
-def normal_search(q, i):
+def normal_search():
+    q = opts['query'] # TEMPORARY
     unordered_results = client.search({'name': q, 'summary': q}, 'or')
-    if type(q) is list:
-        q = ' '.join(q).lower()
-    else:
-        q = q.lower()
+
     ranked_results = []
     for r in unordered_results:
         score = 0
         if r['name'].lower() == q:
             score = 1000
+            break
         for s in q.split(' '):
             score += r['name'].lower().count(s.lower()) * 3
             if r['summary']:
-                score += r['summary'].lower().count(s.lower()) * 1
+                score += r['summary'].lower().count(s.lower())
 
-        ranked_results.append({'name': r['name'],
-                               'version': r['version'],
-                               'summary': r['summary'],
-                               'score': score})
-    return sorted(ranked_results, key=lambda k: k['score'])[-i:]
+        if score > 0:
+            ranked_results.append((Package(r['name'], r['version'],
+                                          r['summary']), score))
+
+    return [x for x,_ in sorted(ranked_results,
+                                key=lambda x: x[1],
+                                reverse=True)[:opts['limit']]]
 
 
 def regex_search(q):
@@ -251,6 +289,7 @@ def set_opts(argv):
 
     opts.update(vars(parser.parse_args()))
     opts['query'] = ' '.join(opts['query'])
+    opts['query'] = opts['query'].lower()
 
     return opts
 
@@ -405,7 +444,7 @@ def print_options(pp_choice, q):
 
 
 # http://stackoverflow.com/a/34325723
-def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=100):
+def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=79):
     format_str = "{0:." + str(decimals) + "f}"
     percent = format_str.format(100 * (iteration / float(total)))
     filled_length = int(round(bar_length * iteration / float(total)))
@@ -418,21 +457,27 @@ def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_lengt
 
 if __name__ == "__main__":
 
-    client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
-
     # when user exits with Ctrl-C, don't show error msg
     signal.signal(signal.SIGINT, lambda x, y: sys.exit())
+    locale.setlocale(locale.LC_ALL, '')
 
+    client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
+    installed_packages = get_installed()
 
     opts = set_opts(sys.argv)
     fmt = Formatter(2, 80, opts['use_colors'])
 
+    search_results = normal_search()
+    alls = []
+    for p in search_results:
+        alls.append(p.print_list_format())
+    print(alls)
+    exit()
+
+
     loaded_results = 0
     result_count = 1
     print_progress(loaded_results, result_count)
-
-    installed_packages = get_installed()
-    locale.setlocale(locale.LC_ALL, '')
 
     ordered_packages = regex_search(opts['query']) if opts['regex'] \
         else normal_search(opts['query'], opts['limit'])
