@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='yip',
-    version='1.2.5',
+    version='1.2.6',
     description='Frontend for searching PyPI, a feature rich alternative to pip search',
     url='https://github.com/balzss/yip',
     author='balzss',
