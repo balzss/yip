@@ -10,45 +10,41 @@ import sys
 import textwrap
 import threading
 import webbrowser
+import xmlrpc.client as xmlrpclib
 from datetime import datetime
 from queue import Queue
 from subprocess import call
 
 import pip
 import requests
-import xmlrpc.client as xmlrpclib
+
 
 class Formatter:
-
     size_suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
 
     colors = {'red': '\033[0;31m',
-            'green': '\033[0;32m',
-            'yellow': '\033[0;33m',
-            'blue': '\033[1;34m',
-            'purple': '\033[1;35m',
-            'cyan': '\033[1;36m',
-            'grey': '\033[0;37m',
-            'endc': '\033[0m'}
+              'green': '\033[0;32m',
+              'yellow': '\033[0;33m',
+              'blue': '\033[1;34m',
+              'purple': '\033[1;35m',
+              'cyan': '\033[1;36m',
+              'grey': '\033[0;37m',
+              'endc': '\033[0m'}
 
     def __init__(self, indent, wrap_width, use_colors):
         self.indent = indent
         self.wrap_width = wrap_width
         self.use_colors = use_colors
 
-
     def color(self, color_id, string):
-        return self.colors[color_id] + string + self.colors['endc'] \
-                if self.use_colors else string
-
+        return self.colors[color_id] + string + self.colors['endc'] if self.use_colors else string
 
     def wrap(self, t):
         return textwrap.fill(t,
-                            initial_indent=' ' * self.indent,
-                            subsequent_indent=' ' * self.indent,
-                            width=self.wrap_width,
-                            replace_whitespace=False)
-
+                             initial_indent=' ' * self.indent,
+                             subsequent_indent=' ' * self.indent,
+                             width=self.wrap_width,
+                             replace_whitespace=False)
 
     def human_size(self, b):
         i = 0
@@ -417,12 +413,10 @@ def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_lengt
 
 
 if __name__ == "__main__":
-
     client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
 
     # when user exits with Ctrl-C, don't show error msg
     signal.signal(signal.SIGINT, lambda x, y: sys.exit())
-
 
     opts = set_opts(sys.argv)
     fmt = Formatter(2, 80, opts['use_colors'])
