@@ -390,7 +390,7 @@ def print_options(pp_choice, q):
     elif o_choise == 'o':
         print('Opening in browser...')
         webbrowser.open(parsed_info['home_page'].split(' ')[-1], new=2)
-        print_options(pp_choice)
+        print_options(pp_choice, q)
     elif o_choise == 'r' and '[r]' in install_option:
         print('Removing package...')
         if opts['auto_sudo']:
