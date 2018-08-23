@@ -6,49 +6,46 @@ import locale
 import os
 import re
 import signal
+import subprocess
 import sys
 import textwrap
 import threading
 import webbrowser
+import xmlrpc.client as xmlrpclib
 from datetime import datetime
 from queue import Queue
 from subprocess import call
 
-import pip
+import pkg_resources
 import requests
-import xmlrpc.client as xmlrpclib
+
 
 class Formatter:
-
     size_suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
 
     colors = {'red': '\033[0;31m',
-            'green': '\033[0;32m',
-            'yellow': '\033[0;33m',
-            'blue': '\033[1;34m',
-            'purple': '\033[1;35m',
-            'cyan': '\033[1;36m',
-            'grey': '\033[0;37m',
-            'endc': '\033[0m'}
+              'green': '\033[0;32m',
+              'yellow': '\033[0;33m',
+              'blue': '\033[1;34m',
+              'purple': '\033[1;35m',
+              'cyan': '\033[1;36m',
+              'grey': '\033[0;37m',
+              'endc': '\033[0m'}
 
     def __init__(self, indent, wrap_width, use_colors):
         self.indent = indent
         self.wrap_width = wrap_width
         self.use_colors = use_colors
 
-
     def color(self, color_id, string):
-        return self.colors[color_id] + string + self.colors['endc'] \
-                if self.use_colors else string
-
+        return self.colors[color_id] + string + self.colors['endc'] if self.use_colors else string
 
     def wrap(self, t):
         return textwrap.fill(t,
-                            initial_indent=' ' * self.indent,
-                            subsequent_indent=' ' * self.indent,
-                            width=self.wrap_width,
-                            replace_whitespace=False)
-
+                             initial_indent=' ' * self.indent,
+                             subsequent_indent=' ' * self.indent,
+                             width=self.wrap_width,
+                             replace_whitespace=False)
 
     def human_size(self, b):
         i = 0
@@ -149,7 +146,7 @@ def get_extra_info_worker(job_queue, result_queue):
 
 
 def get_installed():
-    return {i.key: i.version for i in pip.get_installed_distributions()}
+    return {k: v.version for k, v in pkg_resources.working_set.by_key.items()}
 
 
 def normal_search(q, i):
@@ -386,19 +383,19 @@ def print_options(pp_choice, q):
         print('Installing package...')
         if opts['auto_sudo']:
             call('sudo pip install %s -U' % p_choice['name'], shell=True)
-        elif pip.main(['install', '--upgrade', p_choice['name']]) > 0:
+        elif subprocess.call([sys.executable, '-m', 'pip', 'install', '--upgrade', p_choice['name']]) > 0:
             if input(fmt.color('yellow', '\nRetry as root [y]? ')) != 'y':
                 sys.exit()
             call('sudo pip install %s -U' % p_choice['name'], shell=True)
     elif o_choise == 'o':
         print('Opening in browser...')
         webbrowser.open(parsed_info['home_page'].split(' ')[-1], new=2)
-        print_options(pp_choice)
+        print_options(pp_choice, q)
     elif o_choise == 'r' and '[r]' in install_option:
         print('Removing package...')
         if opts['auto_sudo']:
             call('sudo pip uninstall %s' % p_choice['name'], shell=True)
-        elif pip.main(['uninstall', p_choice['name']]) > 0:
+        elif subprocess.call([sys.executable, '-m', 'pip', 'uninstall', p_choice['name']]) > 0:
             if input(fmt.color('yellow', '\nRetry as root [y]? ')) != 'y':
                 sys.exit()
             call('sudo pip uninstall %s' % p_choice['name'], shell=True)
@@ -417,12 +414,10 @@ def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_lengt
 
 
 if __name__ == "__main__":
-
     client = xmlrpclib.ServerProxy('https://pypi.python.org/pypi')
 
     # when user exits with Ctrl-C, don't show error msg
     signal.signal(signal.SIGINT, lambda x, y: sys.exit())
-
 
     opts = set_opts(sys.argv)
     fmt = Formatter(2, 80, opts['use_colors'])
