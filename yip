@@ -361,10 +361,8 @@ def print_options(pp_choice, q):
                            p_choice['version'],
                            ['home_page', 'date', 'license', 'size'])
 
-    p_info = '%s\n%s\n%s\n%s' % (parsed_info['date'],
-                                 parsed_info['license'],
-                                 parsed_info['size'],
-                                 parsed_info['home_page'])
+    print_items = [parsed_info.get(key, 'N/A') for key in ('date', 'license', 'size','home_page')]
+    p_info = '\n'.join(print_items)
 
     print(fmt.color('blue', '\nName: %s' % p_choice['name']))
     print(fmt.color('purple', 'Version: %s\nStatus: %s' % (p_choice['version'], p_status)))
@@ -375,11 +373,11 @@ def print_options(pp_choice, q):
     print(fmt.wrap('[o]pen homepage in browser'))
     print(fmt.wrap(install_option))
 
-    o_choise = input(fmt.color('yellow', '\n>>> '))
-    if o_choise == 'b':
+    o_choice = input(fmt.color('yellow', '\n>>> '))
+    if o_choice == 'b':
         print_list(formatted_packages, q)
-    elif o_choise == 'i' and '[i]' in install_option or \
-            (o_choise == 'u' and '[u]' in install_option):
+    elif o_choice == 'i' and '[i]' in install_option or \
+            (o_choice == 'u' and '[u]' in install_option):
         print('Installing package...')
         if opts['auto_sudo']:
             call('sudo pip install %s -U' % p_choice['name'], shell=True)
@@ -387,11 +385,11 @@ def print_options(pp_choice, q):
             if input(fmt.color('yellow', '\nRetry as root [y]? ')) != 'y':
                 sys.exit()
             call('sudo pip install %s -U' % p_choice['name'], shell=True)
-    elif o_choise == 'o':
+    elif o_choice == 'o':
         print('Opening in browser...')
         webbrowser.open(parsed_info['home_page'].split(' ')[-1], new=2)
         print_options(pp_choice, q)
-    elif o_choise == 'r' and '[r]' in install_option:
+    elif o_choice == 'r' and '[r]' in install_option:
         print('Removing package...')
         if opts['auto_sudo']:
             call('sudo pip uninstall %s' % p_choice['name'], shell=True)
